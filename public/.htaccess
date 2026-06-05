@@ -1,0 +1,7 @@
+RewriteEngine On
+RewriteBase /FasiChatClassroom/public/
+
+# Si le fichier demandé n'existe pas, envoyer à index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
