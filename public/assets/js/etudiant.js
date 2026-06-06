@@ -1,163 +1,135 @@
-// Variables globales pour suivre la discussion en cours
-let currentChatType = 'public'; // 'prive', 'public', 'mur'
-let currentChatId = 1;         // ID de la cible (ID utilisateur, ID cours, ou ID promotion)
-let currentChatName = 'PHP POO — Promo L2';
-let currentUserId = null;
+console.log('etudiant.js loaded successfully');
 
-// Définir l'ID de l'utilisateur connecté (passé par PHP)
-function initChat(userId, promoId) {
+// Variables globales
+let currentChatType = 'public';
+let currentChatId = 1;
+let currentChatName = 'Promo';
+let currentUserId = null;
+let selectedFileId = null;
+
+window.initChat = function(userId, promoId) {
     currentUserId = userId;
-    currentChatId = promoId; // Par défaut, on ouvre le chat public de la promotion
-    
-    // Démarrer le polling (rafraîchissement automatique toutes les 3 secondes)
+    currentChatId = promoId;
     loadMessages();
     setInterval(loadMessages, 3000);
-}
+};
 
-// Changer de discussion lors du clic sur un élément de la liste
-function changerDiscussion(element, type, id, name) {
+window.triggerUpload = function(type) {
+    const input = document.getElementById('fileInput');
+    input.accept = (type === 'image') ? 'image/*' : (type === 'pdf') ? '.pdf' : (type === 'video') ? 'video/*' : '*';
+    input.click();
+};
+
+window.handleFileUpload = function(input) {
+    if (input.files && input.files[0]) {
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+        fetch('/FasiChatClassroom/public/file-upload', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                selectedFileId = data.file_id;
+                alert('Fichier prêt !');
+            } else {
+                alert('Erreur upload');
+            }
+        });
+    }
+};
+
+window.changerDiscussion = function(element, type, id, name) {
     document.querySelectorAll('.conv-item').forEach(i => i.classList.remove('active'));
     element.classList.add('active');
-    
     currentChatType = type;
     currentChatId = id;
     currentChatName = name;
-    
-    // Mettre à jour l'en-tête de la messagerie
     document.getElementById('topbarTitle').textContent = name;
     
     const badge = document.getElementById('statusBadge');
-    if (type === 'prive') {
-        badge.textContent = 'Message Privé';
-        badge.className = 'status-badge private';
-    } else if (type === 'public') {
-        badge.textContent = 'Message Public';
-        badge.className = 'status-badge public';
-    } else {
-        badge.textContent = 'Mur Pédagogique';
-        badge.className = 'status-badge mur';
-    }
+    badge.textContent = (type === 'prive') ? 'Message Privé' : (type === 'public') ? 'Message Public' : 'Mur Pédagogique';
+    badge.className = 'status-badge ' + type;
     
-    // Charger immédiatement les messages de la nouvelle conversation
     loadMessages();
-}
+};
 
-// Gérer l'appui sur Entrée
-function handleKey(e) {
+window.handleKey = function(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        sendMsg();
+        window.sendMsg();
     }
-}
+};
 
-// Envoyer un message au serveur (AJAX)
-function sendMsg() {
+window.sendMsg = function() {
     const ta = document.getElementById('msgInput');
     const text = ta.value.trim();
-    if (!text) return;
+    if (!text && !selectedFileId) return;
     
-    // Préparer les données à envoyer
     const formData = new FormData();
     formData.append('contenu', text);
     formData.append('type', currentChatType);
+    if (selectedFileId) formData.append('fichier_id', selectedFileId);
     
-    if (currentChatType === 'prive') {
-        formData.append('destinataire_id', currentChatId);
-    } else if (currentChatType === 'public') {
-        formData.append('promotion_id', currentChatId);
-    } else if (currentChatType === 'mur') {
-        formData.append('cours_id', currentChatId);
-    }
+    if (currentChatType === 'prive') formData.append('destinataire_id', currentChatId);
+    else if (currentChatType === 'public') formData.append('promotion_id', currentChatId);
+    else if (currentChatType === 'mur') formData.append('cours_id', currentChatId);
     
-    // Envoi asynchrone
-    fetch('/FasiChatClassroom/public/message-send', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
+    console.log('Sending message:', Object.fromEntries(formData.entries())); // DEBUG
+    
+    fetch('/FasiChatClassroom/public/message-send', { method: 'POST', body: formData })
+    .then(res => res.json())
     .then(data => {
         if (data.success) {
             ta.value = '';
-            ta.style.height = 'auto';
-            loadMessages(); // Recharger immédiatement pour voir notre message
+            selectedFileId = null;
+            loadMessages();
         } else {
-            alert('Erreur lors de l\'envoi du message.');
+            alert('Erreur: ' + (data.error || 'Échec'));
         }
-    })
-    .catch(err => console.error('Erreur:', err));
-}
+    });
+};
 
-// Charger les messages du serveur (AJAX Polling)
 function loadMessages() {
     if (!currentChatId) return;
-    
     fetch(`/FasiChatClassroom/public/message-poll?type=${currentChatType}&id=${currentChatId}`)
-    .then(response => response.json())
+    .then(res => res.json())
     .then(messages => {
         const container = document.getElementById('messages');
-        container.innerHTML = ''; // On vide pour réécrire proprement
-        
+        container.innerHTML = '';
         if (messages.length === 0) {
-            container.innerHTML = '<div class="date-sep">Aucun message pour l\'instant. Lancez la conversation !</div>';
+            container.innerHTML = '<div class="date-sep">Aucun message.</div>';
             return;
         }
         
-        let derniereDate = '';
-        
         messages.forEach(msg => {
-            // Afficher le séparateur de date simple
-            const dateMessage = new Date(msg.date_envoi).toLocaleDateString();
-            if (dateMessage !== derniereDate) {
-                derniereDate = dateMessage;
-                const sep = document.createElement('div');
-                sep.className = 'date-sep';
-                sep.textContent = dateMessage;
-                container.appendChild(sep);
-            }
-            
             const estLeMien = (parseInt(msg.expediteur_id) === parseInt(currentUserId));
             const row = document.createElement('div');
             row.className = estLeMien ? 'msg-row mine' : 'msg-row';
-            
-            // Initiales pour l'avatar
-            const initiales = (msg.prenom.charAt(0) + msg.nom.charAt(0)).toUpperCase();
-            
             const heure = new Date(msg.date_envoi).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             
+            let fileHtml = '';
+            if (msg.fichier_id && msg.nom_stockage) {
+                fileHtml = `<div class="file-bubble">
+                                 <div class="file-icon">📎</div>
+                                 <div class="file-info">Fichier Joint</div>
+                                 <a href="/FasiChatClassroom/public/assets/uploads/${msg.nom_stockage}" target="_blank">⬇</a>
+                             </div>`;
+            }
+            
             row.innerHTML = `
-                <div class="msg-avatar" style="${estLeMien ? 'background: linear-gradient(135deg, var(--sky), var(--accent));' : 'background: linear-gradient(135deg, #0ea5e9, #0284c7);'}">
-                    ${initiales}
-                </div>
+                <div class="msg-avatar">${(msg.prenom.charAt(0) + msg.nom.charAt(0)).toUpperCase()}</div>
                 <div class="msg-group">
-                    <div class="msg-sender">${msg.prenom} ${msg.nom} · ${heure}</div>
+                    <div class="msg-sender">${msg.prenom} ${msg.nom}</div>
+                    ${fileHtml}
                     <div class="bubble ${estLeMien ? 'mine' : 'theirs'}">${escapeHTML(msg.contenu)}</div>
-                    <div class="msg-meta">${heure} ${estLeMien ? '<span class="check-read">✓✓</span>' : ''}</div>
-                </div>
-            `;
+                    <div class="msg-meta">${heure}</div>
+                </div>`;
             container.appendChild(row);
         });
-        
-        // Faire défiler automatiquement vers le bas
         container.scrollTop = container.scrollHeight;
-    })
-    .catch(err => console.error('Erreur chargement messages:', err));
+    });
 }
 
-// Fonction utilitaire pour éviter les failles XSS
 function escapeHTML(str) {
-    return str.replace(/[&<>'"]/g, 
-        tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-        }[tag] || tag)
-    );
+    const p = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return str.replace(/[&<>"']/g, m => p[m]);
 }
-
-// Autoresize textarea de saisie
-document.getElementById('msgInput').addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-});

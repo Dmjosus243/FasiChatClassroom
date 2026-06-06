@@ -73,7 +73,7 @@ $enseignants = $stmtEns->fetchAll();
     
     <!-- CANAL PUBLIC DE PROMOTION -->
     <div class="section-label">Canal Public de Promotion</div>
-    <div class="conv-item active" onclick="changerDiscussion(this, 'public', <?= $promotionId ?>, '<?= htmlspecialchars($promotionNom) ?>')">
+    <div class="conv-item active" onclick="changerDiscussion(this, 'public', <?= $promotionId ?>, '<?= htmlspecialchars($promotionNom, ENT_QUOTES) ?>')">
       <div class="avatar avatar-group">👥</div>
       <div class="conv-info">
         <div class="conv-name"><?= htmlspecialchars($promotionNom) ?></div>
@@ -84,7 +84,7 @@ $enseignants = $stmtEns->fetchAll();
     <!-- MURS PÉDAGOGIQUES DES COURS -->
     <div class="section-label">Murs Pédagogiques (Cours)</div>
     <?php foreach ($listeCours as $cours): ?>
-    <div class="conv-item" onclick="changerDiscussion(this, 'mur', <?= $cours['id'] ?>, 'Mur - <?= htmlspecialchars($cours['nom']) ?>')">
+    <div class="conv-item" onclick="changerDiscussion(this, 'mur', <?= $cours['id'] ?>, 'Mur - <?= htmlspecialchars($cours['nom'], ENT_QUOTES) ?>')">
       <div class="avatar avatar-teal">📚</div>
       <div class="conv-info">
         <div class="conv-name"><?= htmlspecialchars($cours['nom']) ?></div>
@@ -96,7 +96,7 @@ $enseignants = $stmtEns->fetchAll();
     <!-- MESSAGES PRIVÉS AVEC ÉTUDIANTS -->
     <div class="section-label">Messages Privés (Camarades)</div>
     <?php foreach ($autresEtudiants as $etud): ?>
-    <div class="conv-item" onclick="changerDiscussion(this, 'prive', <?= $etud['id'] ?>, '<?= htmlspecialchars($etud['prenom'] . ' ' . $etud['nom']) ?>')">
+    <div class="conv-item" onclick="changerDiscussion(this, 'prive', <?= $etud['id'] ?>, '<?= htmlspecialchars($etud['prenom'] . ' ' . $etud['nom'], ENT_QUOTES) ?>')">
       <div class="avatar avatar-sky"><?= strtoupper(substr($etud['prenom'], 0, 1) . substr($etud['nom'], 0, 1)) ?></div>
       <div class="conv-info">
         <div class="conv-name"><?= htmlspecialchars($etud['prenom'] . ' ' . $etud['nom']) ?></div>
@@ -108,7 +108,7 @@ $enseignants = $stmtEns->fetchAll();
     <!-- MESSAGES PRIVÉS AVEC ENSEIGNANTS -->
     <div class="section-label">Messages Publics (Enseignants)</div>
     <?php foreach ($enseignants as $ens): ?>
-    <div class="conv-item" onclick="changerDiscussion(this, 'prive', <?= $ens['id'] ?>, '<?= htmlspecialchars($ens['prenom'] . ' ' . $ens['nom']) ?>')">
+    <div class="conv-item" onclick="changerDiscussion(this, 'prive', <?= $ens['id'] ?>, '<?= htmlspecialchars($ens['prenom'] . ' ' . $ens['nom'], ENT_QUOTES) ?>')">
       <div class="avatar avatar-indigo"><?= strtoupper(substr($ens['prenom'], 0, 1) . substr($ens['nom'], 0, 1)) ?></div>
       <div class="conv-info">
         <div class="conv-name"><?= htmlspecialchars($ens['prenom'] . ' ' . $ens['nom']) ?> <span class="tag-public" style="margin-left:4px; font-size:9px;"><?= strtoupper($ens['role']) ?></span></div>
@@ -154,6 +154,13 @@ $enseignants = $stmtEns->fetchAll();
 
   <!-- Input area -->
   <div class="chat-input-area">
+    <div class="input-toolbar">
+      <button class="toolbar-btn" onclick="triggerUpload('pdf')">📊 PDF</button>
+      <button class="toolbar-btn" onclick="triggerUpload('image')">🖼 Image</button>
+      <button class="toolbar-btn" onclick="triggerUpload('video')">🎥 Vidéo</button>
+      <button class="toolbar-btn" onclick="triggerUpload('doc')">📎 Document</button>
+      <input type="file" id="fileInput" style="display:none" onchange="handleFileUpload(this)">
+    </div>
     <div class="input-row">
       <div class="msg-textarea-wrap">
         <textarea class="msg-textarea" placeholder="Écrire un message... (Appuyez sur Entrée pour envoyer)" rows="1" id="msgInput" onkeydown="handleKey(event)"></textarea>

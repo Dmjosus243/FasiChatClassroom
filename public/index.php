@@ -6,7 +6,9 @@ $request = $_SERVER['REQUEST_URI'];
 $basePath = '/FasiChatClassroom/public';
 
 
-$path = str_replace($basePath, '', $request);
+// Nettoie l'URL pour n'avoir que le chemin relatif
+$path = parse_url($request, PHP_URL_PATH);
+$path = str_replace($basePath, '', $path);
 $path = trim($path, '/');
 
 
@@ -40,7 +42,35 @@ switch ($path) {
     case 'dashboard_apparitaire.php':
         require __DIR__ . '/../views/dashboard_apparitaire.php';
         break;
+    case 'file-upload':
+        session_start();
+        if (isset($_SESSION['user'])) {
+            require_once __DIR__ . '/../src/Autoloader.php';
+            require_once __DIR__ . '/../database/Database.php';
+            
+            $dbInstance = new Database();
+            $db = $dbInstance->getConnection();
+            
+            $fileModel = new Fichier($db);
+            if (isset($_FILES['file'])) {
+                $fileId = $fileModel->upload($_FILES['file']);
+                ob_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => (bool)$fileId, 'file_id' => $fileId]);
+            } else {
+                ob_clean();
+                header('HTTP/1.1 400 Bad Request');
+                echo json_encode(['error' => 'Aucun fichier reçu']);
+            }
+        } else {
+            ob_clean();
+            header('HTTP/1.1 403 Forbidden');
+            echo json_encode(['error' => 'Non connecté']);
+        }
+        exit();
+        break;
     case 'message-send':
+        ob_clean();
         session_start();
         if (isset($_SESSION['user'])) {
             require_once __DIR__ . '/../src/Autoloader.php';
@@ -51,17 +81,26 @@ switch ($path) {
             
             $msgModel = new Message($db);
             
-            $expediteurId = $_SESSION['user']['id'];
-            $contenu = $_POST['contenu'] ?? '';
-            $type = $_POST['type'] ?? 'prive';
-            $destinataireId = !empty($_POST['destinataire_id']) ? intval($_POST['destinataire_id']) : null;
-            $coursId = !empty($_POST['cours_id']) ? intval($_POST['cours_id']) : null;
-            $promotionId = !empty($_POST['promotion_id']) ? intval($_POST['promotion_id']) : null;
-            
-            $success = $msgModel->envoyer($expediteurId, $contenu, $type, $destinataireId, $coursId, $promotionId);
-            
-            header('Content-Type: application/json');
-            echo json_encode(['success' => $success]);
+            try {
+                $expediteurId = $_SESSION['user']['id'];
+                $contenu = $_POST['contenu'] ?? '';
+                $type = $_POST['type'] ?? 'prive';
+                $destinataireId = !empty($_POST['destinataire_id']) ? intval($_POST['destinataire_id']) : null;
+                $coursId = !empty($_POST['cours_id']) ? intval($_POST['cours_id']) : null;
+                $promotionId = !empty($_POST['promotion_id']) ? intval($_POST['promotion_id']) : null;
+                $fichierId = !empty($_POST['fichier_id']) ? intval($_POST['fichier_id']) : null;
+                
+                $success = $msgModel->envoyer($expediteurId, $contenu, $type, $destinataireId, $coursId, $promotionId, $fichierId);
+                
+                ob_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => $success]);
+            } catch (Exception $e) {
+                ob_clean();
+                header('Content-Type: application/json');
+                header('HTTP/1.1 400 Bad Request');
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
         } else {
             header('HTTP/1.1 403 Forbidden');
             echo json_encode(['error' => 'Non connecté']);
@@ -92,15 +131,43 @@ switch ($path) {
                 $messages = $msgModel->recupererMur($id);
             }
             
+            ob_clean();
             header('Content-Type: application/json');
             echo json_encode($messages);
         } else {
+            ob_clean();
             header('HTTP/1.1 403 Forbidden');
             echo json_encode(['error' => 'Non connecté']);
         }
         exit();
         break;
-    case 'valve-publish':
+    case 'convocation-send':
+        session_start();
+        if (isset($_SESSION['user']) && in_array($_SESSION['user']['role'], ['doyen', 'vice-doyen'])) {
+            require_once __DIR__ . '/../src/Autoloader.php';
+            require_once __DIR__ . '/../database/Database.php';
+            
+            $dbInstance = new Database();
+            $db = $dbInstance->getConnection();
+            
+            $user = $_SESSION['user'];
+            // On instancie la classe correspondante (Doyen ou ViceDoyen)
+            $roleClass = ucfirst($user['role']) === 'Doyen' ? 'Doyen' : 'ViceDoyen';
+            $admin = new $roleClass($db, $user);
+            
+            if ($admin->convoquer($db, $_POST['objet'], $_POST['date'], $_POST['heure'], $_POST['lieu'], $_POST['message'] ?? '')) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true]);
+            } else {
+                header('HTTP/1.1 500 Internal Server Error');
+                echo json_encode(['success' => false, 'error' => 'Erreur lors de l\'envoi']);
+            }
+        } else {
+            header('HTTP/1.1 403 Forbidden');
+            echo json_encode(['error' => 'Accès refusé']);
+        }
+        exit();
+        break;
 
         session_start();
         if (isset($_SESSION['user']) && $_SESSION['user']['role'] === 'apparitaire') {

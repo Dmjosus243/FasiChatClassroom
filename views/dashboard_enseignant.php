@@ -1,3 +1,33 @@
+<?php
+// views/dashboard_enseignant.php
+session_start();
+
+if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], ['enseignant', 'assistant'])) {
+    header('Location: /FasiChatClassroom/public/login');
+    exit();
+}
+
+$currentUser = $_SESSION['user'];
+
+require_once __DIR__ . '/../src/Autoloader.php';
+require_once __DIR__ . '/../database/Database.php';
+
+$dbInstance = new Database();
+$db = $dbInstance->getConnection();
+
+// Récupérer les étudiants
+$stmtEtud = $db->query("SELECT * FROM utilisateurs WHERE role = 'etudiant'");
+$etudiants = $stmtEtud->fetchAll();
+
+// Récupérer les collègues enseignants/assistants
+$stmtColl = $db->prepare("SELECT * FROM utilisateurs WHERE role IN ('enseignant', 'assistant') AND id != :my_id");
+$stmtColl->execute(['my_id' => $currentUser['id']]);
+$collegues = $stmtColl->fetchAll();
+
+// Récupérer les convocations reçues
+$convocModel = new Convocation($db);
+$convocations = $convocModel->recupererToutes();
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -5,7 +35,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FasiChat — Dashboard Enseignant</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/dashboard_enseignant.css">
+<link rel="stylesheet" href="/FasiChatClassroom/public/assets/css/dashboard_enseignant.css">
 </head>
 <body>
 
@@ -19,7 +49,7 @@
     <button class="nav-tab active" onclick="showView('students',this)">👥 Étudiants</button>
     <button class="nav-tab" onclick="showView('mur',this)">📋 Mur</button>
     <button class="nav-tab" onclick="showView('msgs',this)">💬 Messages</button>
-    <button class="nav-tab" onclick="location.href='valve.html'">📣 Valve</button>
+    <button class="nav-tab" onclick="location.href='/FasiChatClassroom/public/valve'">📣 Valve</button>
   </div>
   <div class="sidebar-search">
     <div class="search-wrap">
@@ -29,40 +59,43 @@
   </div>
   <div class="conv-list">
     <div class="section-label">Mes Cours</div>
-    <div class="conv-item active" onclick="selectConv(this,'Programation Web — L2 Info','👩‍💻','gradient(135deg,#3b82f6,#1d4ed8)','28 étudiants · 3 en ligne','public')">
+    <div class="conv-item active" onclick="selectConv(this,'Programation Web — L2 FASI','🖥','linear-gradient(135deg,#3b82f6,#1d4ed8)','450 étudiants','public', 1)">
       <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">🖥</div>
-      <div class="conv-info"><div class="conv-name">Programation Web — L2 FASI</div><div class="conv-preview">450 étudiants</div></div>
+      <div class="conv-info"><div class="conv-name">Programation Web — L2 FASI</div><div class="conv-preview">Cours Public</div></div>
       <div class="conv-meta"><div class="conv-time">Actif</div><div class="conv-badge">5</div></div>
-    </div>
-    <div class="conv-item" onclick="selectConv(this,'Cybersécurité M1','🔐','linear-gradient(135deg,#14b8a6,#0d9488)','15 étudiants · 1 en ligne','public')">
-      <div class="avatar" style="background:linear-gradient(135deg,#14b8a6,#0d9488);">🔐</div>
-      <div class="conv-info"><div class="conv-name">Cybersécurité avancée L4</div><div class="conv-preview">50 étudiants</div></div>
-      <div class="conv-meta"><div class="conv-time">Actif</div></div>
     </div>
 
     <div class="section-label">Collègues (Privé)</div>
-    <div class="conv-item" onclick="location.href='dashboard_enseignant.html'">
-      <div class="avatar" style="background:linear-gradient(135deg,#6366f1,#4f46e5);font-size:12px;font-weight:700;">AD</div>
-      <div class="conv-info"><div class="conv-name">Prof. KABEYA</div><div class="conv-preview">D'accord pour jeudi 14h</div></div>
-      <div class="conv-meta"><div class="conv-time">11:30</div></div>
+    <?php foreach ($collegues as $col): ?>
+    <div class="conv-item" onclick="selectConv(this,'<?= htmlspecialchars($col['prenom'].' '.$col['nom'], ENT_QUOTES) ?>','👤','linear-gradient(135deg,#6366f1,#4f46e5)','<?= ucfirst($col['role']) ?>','prive', <?= $col['id'] ?>)">
+      <div class="avatar" style="background:linear-gradient(135deg,#6366f1,#4f46e5);font-size:12px;font-weight:700;"><?= strtoupper(substr($col['prenom'],0,1).substr($col['nom'],0,1)) ?></div>
+      <div class="conv-info"><div class="conv-name"><?= htmlspecialchars($col['prenom'].' '.$col['nom']) ?></div><div class="conv-preview">Chat privé</div></div>
     </div>
-    <div class="conv-item" onclick="location.href='dashboard_enseignant.html'">
-      <div class="avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706);font-size:12px;font-weight:700;">SK</div>
-      <div class="conv-info"><div class="conv-name">Ass. MBUYAMBA</div><div class="conv-preview">J'ai corrigé les copies</div></div>
-      <div class="conv-meta"><div class="conv-time">Hier</div></div>
-    </div>
+    <?php endforeach; ?>
 
     <div class="section-label">Convocations reçues</div>
-    <div class="conv-item" onclick="location.href='dashboard_enseignant.html'">
-      <div class="avatar" style="background:linear-gradient(135deg,#dc2626,#991b1b);">🏛</div>
-      <div class="conv-info"><div class="conv-name">Doyen — Réunion</div><div class="conv-preview">Conseil pédagogique vendredi</div></div>
-      <div class="conv-meta"><div class="conv-time">08:00</div><div class="conv-badge-warn">!</div></div>
-    </div>
+    <?php if (empty($convocations)): ?>
+        <div style="padding: 10px; font-size: 12px; color: #9ca3af; text-align: center;">Aucune convocation</div>
+    <?php else: ?>
+        <?php foreach ($convocations as $conv): ?>
+        <div class="conv-item" onclick="alert('Détails : <?= htmlspecialchars($conv['objet']) ?>\nLieu : <?= htmlspecialchars($conv['lieu']) ?>\nDate : <?= htmlspecialchars($conv['date_heure']) ?>')">
+          <div class="avatar" style="background:linear-gradient(135deg,#dc2626,#991b1b);">🏛</div>
+          <div class="conv-info">
+            <div class="conv-name"><?= htmlspecialchars($conv['expediteur_prenom'] . ' ' . $conv['expediteur_nom']) ?></div>
+            <div class="conv-preview"><?= htmlspecialchars(substr($conv['objet'], 0, 30)) ?>...</div>
+          </div>
+          <div class="conv-meta">
+            <div class="conv-time"><?= date('H:i', strtotime($conv['date_heure'])) ?></div>
+            <div class="conv-badge-warn">!</div>
+          </div>
+        </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
   </div>
   <div class="sidebar-profile">
     <div class="profile-avatar"><div class="online-dot"></div>👨‍🏫</div>
-    <div class="profile-info"><h4>Prof. MANPUYA</h4><span>Enseignant · PHP & Cyber</span></div>
-    <div class="profile-actions"><a href="login.html" class="icon-btn">🚪</a></div>
+    <div class="profile-info"><h4><?= htmlspecialchars($currentUser['prenom'] . ' ' . $currentUser['nom']) ?></h4><span><?= ucfirst($currentUser['role']) ?></span></div>
+    <div class="profile-actions"><a href="/FasiChatClassroom/public/login" class="icon-btn">🚪</a></div>
   </div>
 </div>
 
@@ -97,70 +130,23 @@
       <button class="filter-btn">Hors ligne</button>
     </div>
     <div class="students-grid">
+      <!-- Liste statique restaurée -->
       <div class="student-card">
         <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,var(--sky),var(--accent));">AF</div>
-          <div><div class="sc-name">YVE SHONGO</div><div class="sc-matric">ET2024001</div></div>
+          <div class="sc-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">DA</div>
+          <div><div class="sc-name">Daniel Ayivi</div></div>
         </div>
-        <div class="sc-stats"><span class="sc-tag tag-online">● En ligne</span><span class="sc-tag tag-blue">L2 FASI</span></div>
         <div class="sc-actions">
-          <button class="sc-btn msg" onclick="showView('msgs',null)">💬 Message</button>
-          <button class="sc-btn view">👁 Profil</button>
+          <button class="sc-btn msg" onclick="selectConv(null, 'Daniel Ayivi','👤','linear-gradient(135deg,#3b82f6,#1d4ed8)','Étudiant','prive', 101); showView('msgs', document.querySelectorAll('.nav-tab')[2])">💬 Message</button>
         </div>
       </div>
       <div class="student-card">
         <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);">AM</div>
-          <div><div class="sc-name">AMANI JURENT</div><div class="sc-matric">SI2024002</div></div>
+          <div class="sc-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">MM</div>
+          <div><div class="sc-name">Mamadou Mbaye</div></div>
         </div>
-        <div class="sc-stats"><span class="sc-tag tag-online">● En ligne</span><span class="sc-tag tag-blue">L2 FASI</span></div>
         <div class="sc-actions">
-          <button class="sc-btn msg" onclick="showView('msgs',null)">💬 Message</button>
-          <button class="sc-btn view">👁 Profil</button>
-        </div>
-      </div>
-      <div class="student-card">
-        <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">KD</div>
-          <div><div class="sc-name">LOVE NZOLA</div><div class="sc-matric">SI2024003</div></div>
-        </div>
-        <div class="sc-stats"><span class="sc-tag tag-offline">○ Hors ligne</span><span class="sc-tag tag-blue">L2 FASI</span></div>
-        <div class="sc-actions">
-          <button class="sc-btn msg" onclick="showView('msgs',null)">💬 Message</button>
-          <button class="sc-btn view">👁 Profil</button>
-        </div>
-      </div>
-      <div class="student-card">
-        <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,#14b8a6,#0d9488);">FN</div>
-          <div><div class="sc-name">ANDY NGONGO</div><div class="sc-matric">SI2024004</div></div>
-        </div>
-        <div class="sc-stats"><span class="sc-tag tag-online">● En ligne</span><span class="sc-tag tag-blue">L2 FASI</span></div>
-        <div class="sc-actions">
-          <button class="sc-btn msg" onclick="showView('msgs',null)">💬 Message</button>
-          <button class="sc-btn view">👁 Profil</button>
-        </div>
-      </div>
-      <div class="student-card">
-        <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,#ec4899,#db2777);">MS</div>
-          <div><div class="sc-name">NGUNZ ANDY</div><div class="sc-matric">SI2024005</div></div>
-        </div>
-        <div class="sc-stats"><span class="sc-tag tag-offline">○ Hors ligne</span><span class="sc-tag tag-blue">L2 FASI</span></div>
-        <div class="sc-actions">
-          <button class="sc-btn msg" onclick="showView('msgs',null)">💬 Message</button>
-          <button class="sc-btn view">👁 Profil</button>
-        </div>
-      </div>
-      <div class="student-card">
-        <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706);">OD</div>
-          <div><div class="sc-name">DAN MBO</div><div class="sc-matric">ET2024006</div></div>
-        </div>
-        <div class="sc-stats"><span class="sc-tag tag-online">● En ligne</span><span class="sc-tag tag-blue">L2 FASI</span></div>
-        <div class="sc-actions">
-          <button class="sc-btn msg" onclick="showView('msgs',null)">💬 Message</button>
-          <button class="sc-btn view">👁 Profil</button>
+          <button class="sc-btn msg" onclick="selectConv(null, 'Mamadou Mbaye','👤','linear-gradient(135deg,#3b82f6,#1d4ed8)','Étudiant','prive', 102); showView('msgs', document.querySelectorAll('.nav-tab')[2])">💬 Message</button>
         </div>
       </div>
     </div>
@@ -187,79 +173,28 @@
           <div class="post-actions"><button class="post-action-btn">✏️</button><button class="post-action-btn">🗑</button></div>
         </div>
         <div class="post-content">Rappel important : le projet FasiChat est à rendre avant <strong>vendredi 23h59</strong>. Assurez-vous que votre diagramme UML est complet et que votre code respecte les principes de la POO vus en cours. Bon courage à tous ! 🎯</div>
-        <div class="post-file">
-          <span style="font-size:20px;">📄</span>
-          <span>Sujet_Projet_PHP_POO_Final.pdf</span>
-          <small>2.4 Mo</small>
-        </div>
-        <div class="post-tags" style="margin-top:10px;"><span class="post-tag">Projet</span><span class="post-tag">PHP POO</span><span class="post-tag">Urgent</span></div>
-      </div>
-      <div class="mur-post">
-        <div class="post-header">
-          <div class="post-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706);">PM</div>
-          <div><div class="post-author">Prof MANPUYA</div><div class="post-meta">Hier à 15:20 · PHP POO L3</div></div>
-          <div class="post-actions"><button class="post-action-btn">✏️</button><button class="post-action-btn">🗑</button></div>
-        </div>
-        <div class="post-content">Question de réflexion pour la prochaine séance : <em>Comment modéliseriez-vous la différence de visibilité des messages entre étudiants et enseignants en POO ? Pensez aux interfaces et aux principes SOLID.</em></div>
-        <div class="post-tags" style="margin-top:10px;"><span class="post-tag">Réflexion</span><span class="post-tag">Architecture</span></div>
       </div>
     </div>
   </div>
 
   <!-- Chat messages view -->
   <div class="chat-messages" id="view-msgs">
-    <div class="date-sep">Aujourd'hui</div>
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,var(--sky),var(--accent));">AF</div>
-      <div class="msg-group">
-        <div class="msg-sender">Divine Katende · 10:18</div>
-        <div class="bubble theirs">Professeur, pour la classe abstraite Utilisateur, doit-on y mettre la méthode de connexion ou la laisser dans les classes filles ?</div>
-        <div class="msg-meta">10:18</div>
-      </div>
-    </div>
-    <div class="msg-row mine">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706);">PM</div>
-      <div class="msg-group">
-        <div class="bubble mine">Excellente question DIVINE ! La méthode seConnecter() doit être abstraite dans la classe mère. Chaque sous-classe l'implémente selon ses règles. Pensez au polymorphisme ! 🧠</div>
-        <div class="msg-meta">10:25 ✓✓</div>
-      </div>
-    </div>
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);">AM</div>
-      <div class="msg-group">
-        <div class="msg-sender">Dan MBO · 11:02</div>
-        <div class="bubble theirs">Merci Professeur. Est-ce que PDO est obligatoire ou on peut utiliser MySQLi ?</div>
-        <div class="msg-meta">11:02</div>
-      </div>
-    </div>
-    <div class="msg-row mine">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706);">PM</div>
-      <div class="msg-group">
-        <div class="bubble mine">PDO est obligatoire selon les exigences du projet. Il offre plus de flexibilité et de sécurité avec les requêtes préparées. 👍</div>
-        <div class="msg-meta">11:10 ✓✓</div>
-      </div>
-    </div>
+    <div class="date-sep">Chargement des messages...</div>
   </div>
 
   <!-- Input (shown for msgs view) -->
   <div class="chat-input-area" id="input-area" style="display:none;">
-    <div class="input-toolbar">
-      <button class="toolbar-btn">📎 Fichier</button>
-      <button class="toolbar-btn">🖼 Image</button>
-      <button class="toolbar-btn">📊 PDF</button>
-    </div>
     <div class="input-row">
-      <button class="voice-btn">🎤</button>
       <div class="msg-textarea-wrap">
-        <textarea class="msg-textarea" placeholder="Répondre aux étudiants..." rows="1" id="msgInput" onkeydown="handleKey(event)"></textarea>
-        <button class="emoji-btn">😊</button>
+        <textarea class="msg-textarea" placeholder="Répondre..." rows="1" id="msgInput"></textarea>
       </div>
+      <button class="attach-btn" onclick="triggerUpload()">📎</button>
+      <input type="file" id="fileInput" style="display:none;" onchange="handleFileUpload(this)">
       <button class="send-btn" onclick="sendMsg()">➤</button>
     </div>
   </div>
 </div>
 
-<!-- RIGHT PANEL -->
 <div class="right-panel">
   <div class="panel-section">
     <div class="panel-title">Statistiques</div>
@@ -274,23 +209,16 @@
   </div>
   <div class="panel-section">
     <div class="panel-title">Convocations reçues</div>
-    <div class="convoc-card">
-      <h4>🏛 Conseil Pédagogique</h4>
-      <p>Réunion convoquée par le Doyen concernant l'évaluation du semestre 5.</p>
-      <div class="convoc-date">📅 Vendredi 24 Jan · 14h00 · Salle A-12</div>
-    </div>
-  </div>
-  <div class="panel-section">
-    <div class="panel-title">Mes cours</div>
-    <div class="info-card">
-      <h4>PHP POO</h4><p>L2 Informatique · 450 étudiants</p>
-    </div>
-    <div class="info-card">
-      <h4>Cybersécurité Python</h4><p>L3 Cybersécurité avancée · 40 étudiants</p>
+    <div id="convoc-list-right">
+        <!-- Rempli dynamiquement via PHP -->
     </div>
   </div>
 </div>
 
-<script></script>
+<script src="/FasiChatClassroom/public/assets/js/dashboard_enseignant.js"></script>
+<script>
+    // Initialisation du chat pour l'enseignant
+    initChat(<?= $currentUser['id'] ?>, 1); // 1 est l'ID par défaut de la promo L2 FASI
+</script>
 </body>
 </html>
