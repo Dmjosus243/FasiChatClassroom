@@ -1,5 +1,4 @@
 <?php
-// src/Autoloader.php
 
 spl_autoload_register(function ($class) {
     // Dossiers où chercher les classes

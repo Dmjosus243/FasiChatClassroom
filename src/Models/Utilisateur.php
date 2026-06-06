@@ -1,6 +1,4 @@
 <?php
-
-
 abstract class Utilisateur {
     protected $id;
     protected $nom;

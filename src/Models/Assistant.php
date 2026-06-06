@@ -1,5 +1,5 @@
 <?php
-// src/Models/Assistant.php
+
 
 class Assistant extends Enseignant {
     

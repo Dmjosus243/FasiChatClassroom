@@ -1,6 +1,4 @@
 <?php
-// src/Models/ViceDoyen.php
-
 class ViceDoyen extends CadreAdministratif {
     
     public function __construct($data = []) {

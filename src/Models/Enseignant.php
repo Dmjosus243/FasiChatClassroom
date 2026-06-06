@@ -1,5 +1,4 @@
 <?php
-// src/Models/Enseignant.php
 
 class Enseignant extends Utilisateur {
     private $db;

@@ -40,6 +40,66 @@ switch ($path) {
     case 'dashboard_apparitaire.php':
         require __DIR__ . '/../views/dashboard_apparitaire.php';
         break;
+    case 'message-send':
+        session_start();
+        if (isset($_SESSION['user'])) {
+            require_once __DIR__ . '/../src/Autoloader.php';
+            require_once __DIR__ . '/../database/Database.php';
+            
+            $dbInstance = new Database();
+            $db = $dbInstance->getConnection();
+            
+            $msgModel = new Message($db);
+            
+            $expediteurId = $_SESSION['user']['id'];
+            $contenu = $_POST['contenu'] ?? '';
+            $type = $_POST['type'] ?? 'prive';
+            $destinataireId = !empty($_POST['destinataire_id']) ? intval($_POST['destinataire_id']) : null;
+            $coursId = !empty($_POST['cours_id']) ? intval($_POST['cours_id']) : null;
+            $promotionId = !empty($_POST['promotion_id']) ? intval($_POST['promotion_id']) : null;
+            
+            $success = $msgModel->envoyer($expediteurId, $contenu, $type, $destinataireId, $coursId, $promotionId);
+            
+            header('Content-Type: application/json');
+            echo json_encode(['success' => $success]);
+        } else {
+            header('HTTP/1.1 403 Forbidden');
+            echo json_encode(['error' => 'Non connecté']);
+        }
+        exit();
+        break;
+    case 'message-poll':
+        session_start();
+        if (isset($_SESSION['user'])) {
+            require_once __DIR__ . '/../src/Autoloader.php';
+            require_once __DIR__ . '/../database/Database.php';
+            
+            $dbInstance = new Database();
+            $db = $dbInstance->getConnection();
+            
+            $msgModel = new Message($db);
+            
+            $type = $_GET['type'] ?? 'prive';
+            $id = !empty($_GET['id']) ? intval($_GET['id']) : 0;
+            $currentUserId = $_SESSION['user']['id'];
+            
+            $messages = [];
+            if ($type === 'prive') {
+                $messages = $msgModel->recupererPrives($currentUserId, $id);
+            } elseif ($type === 'public') {
+                $messages = $msgModel->recupererPublics($id);
+            } elseif ($type === 'mur') {
+                $messages = $msgModel->recupererMur($id);
+            }
+            
+            header('Content-Type: application/json');
+            echo json_encode($messages);
+        } else {
+            header('HTTP/1.1 403 Forbidden');
+            echo json_encode(['error' => 'Non connecté']);
+        }
+        exit();
+        break;
     case 'valve-publish':
 
         session_start();

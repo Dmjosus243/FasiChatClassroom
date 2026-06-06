@@ -1,11 +1,49 @@
+<?php
+// views/dashboard_etudiant.php
+session_start();
+
+// Protection de la session : seul un étudiant connecté peut voir cette page
+if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'etudiant') {
+    header('Location: /FasiChatClassroom/public/login');
+    exit();
+}
+
+$currentUser = $_SESSION['user'];
+
+require_once __DIR__ . '/../src/Autoloader.php';
+require_once __DIR__ . '/../database/Database.php';
+
+$dbInstance = new Database();
+$db = $dbInstance->getConnection();
+
+// 1. Récupérer la promotion de l'étudiant (par défaut, on utilise la première s'il n'est pas lié)
+$stmtPromo = $db->query("SELECT * FROM promotions ORDER BY id ASC LIMIT 1");
+$promotion = $stmtPromo->fetch();
+$promotionId = $promotion ? $promotion['id'] : 1;
+$promotionNom = $promotion ? $promotion['nom'] : 'L2 FASI';
+
+// 2. Récupérer les cours de cette promotion (pour le mur pédagogique)
+$stmtCours = $db->prepare("SELECT * FROM cours WHERE promotion_id = :promo_id");
+$stmtCours->execute(['promo_id' => $promotionId]);
+$listeCours = $stmtCours->fetchAll();
+
+// 3. Récupérer la liste des étudiants de la même promotion (pour les messages privés)
+$stmtEtud = $db->prepare("SELECT id, nom, prenom FROM utilisateurs WHERE role = 'etudiant' AND id != :my_id");
+$stmtEtud->execute(['my_id' => $currentUser['id']]);
+$autresEtudiants = $stmtEtud->fetchAll();
+
+// 4. Récupérer les enseignants (pour le chat public/privé)
+$stmtEns = $db->query("SELECT id, nom, prenom, role FROM utilisateurs WHERE role IN ('enseignant', 'assistant')");
+$enseignants = $stmtEns->fetchAll();
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FasiChat — Dashboard Étudiant</title>
+<title>FasiChat — Espace Étudiant</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/etudiant.css">
+<link rel="stylesheet" href="/FasiChatClassroom/public/assets/css/etudiant.css">
 </head>
 <body>
 
@@ -21,8 +59,7 @@
 
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchTab(this,'msgs')">💬 Messages</button>
-    <button class="nav-tab" onclick="switchTab(this,'cours')">📚 Cours</button>
-    <button class="nav-tab" onclick="location.href='valve.html'">📣 Valve</button>
+    <button class="nav-tab" onclick="location.href='/FasiChatClassroom/public/valve'">📣 Valve</button>
   </div>
 
   <div class="sidebar-search">
@@ -33,79 +70,52 @@
   </div>
 
   <div class="conv-list" id="msgs-panel">
-    <div class="section-label">Cours Publics</div>
-
-    <div class="conv-item active" onclick="selectConv(this)">
+    
+    <!-- CANAL PUBLIC DE PROMOTION -->
+    <div class="section-label">Canal Public de Promotion</div>
+    <div class="conv-item active" onclick="changerDiscussion(this, 'public', <?= $promotionId ?>, '<?= htmlspecialchars($promotionNom) ?>')">
       <div class="avatar avatar-group">👥</div>
       <div class="conv-info">
-        <div class="conv-name">PHP POO — Promo L2</div>
-        <div class="conv-preview">Prof. MAMPUYA : Rendez vos projets avant...</div>
-      </div>
-      <div class="conv-meta">
-        <div class="conv-time">14:22</div>
-        <div class="conv-badge">3</div>
+        <div class="conv-name"><?= htmlspecialchars($promotionNom) ?></div>
+        <div class="conv-preview">Chat ouvert de la promotion</div>
       </div>
     </div>
 
-    <div class="conv-item" onclick="selectConv(this)">
-      <div class="avatar avatar-teal">🔐</div>
+    <!-- MURS PÉDAGOGIQUES DES COURS -->
+    <div class="section-label">Murs Pédagogiques (Cours)</div>
+    <?php foreach ($listeCours as $cours): ?>
+    <div class="conv-item" onclick="changerDiscussion(this, 'mur', <?= $cours['id'] ?>, 'Mur - <?= htmlspecialchars($cours['nom']) ?>')">
+      <div class="avatar avatar-teal">📚</div>
       <div class="conv-info">
-        <div class="conv-name">Système Embarqué</div>
-        <div class="conv-preview">CT. ZUIYA : Le TP de demain est...</div>
-      </div>
-      <div class="conv-meta">
-        <div class="conv-time">11:05</div>
+        <div class="conv-name"><?= htmlspecialchars($cours['nom']) ?></div>
+        <div class="conv-preview">Poser des questions sur le cours</div>
       </div>
     </div>
+    <?php endforeach; ?>
 
-    <div class="section-label">Messages Privés</div>
-
-    <div class="conv-item" onclick="selectConv(this)">
-      <div class="avatar avatar-blue" style="font-size:13px;font-weight:700;">AM</div>
+    <!-- MESSAGES PRIVÉS AVEC ÉTUDIANTS -->
+    <div class="section-label">Messages Privés (Camarades)</div>
+    <?php foreach ($autresEtudiants as $etud): ?>
+    <div class="conv-item" onclick="changerDiscussion(this, 'prive', <?= $etud['id'] ?>, '<?= htmlspecialchars($etud['prenom'] . ' ' . $etud['nom']) ?>')">
+      <div class="avatar avatar-sky"><?= strtoupper(substr($etud['prenom'], 0, 1) . substr($etud['nom'], 0, 1)) ?></div>
       <div class="conv-info">
-        <div class="conv-name">Ezechiel ITEWE</div>
-        <div class="conv-preview">TLe cultte de demain est important</div>
-      </div>
-      <div class="conv-meta">
-        <div class="conv-time">10:30</div>
-        <div class="conv-badge">1</div>
+        <div class="conv-name"><?= htmlspecialchars($etud['prenom'] . ' ' . $etud['nom']) ?></div>
+        <div class="conv-preview">Lancer un chat privé</div>
       </div>
     </div>
+    <?php endforeach; ?>
 
-    <div class="conv-item" onclick="selectConv(this)">
-      <div class="avatar avatar-sky" style="font-size:13px;font-weight:700;">KD</div>
+    <!-- MESSAGES PRIVÉS AVEC ENSEIGNANTS -->
+    <div class="section-label">Messages Publics (Enseignants)</div>
+    <?php foreach ($enseignants as $ens): ?>
+    <div class="conv-item" onclick="changerDiscussion(this, 'prive', <?= $ens['id'] ?>, '<?= htmlspecialchars($ens['prenom'] . ' ' . $ens['nom']) ?>')">
+      <div class="avatar avatar-indigo"><?= strtoupper(substr($ens['prenom'], 0, 1) . substr($ens['nom'], 0, 1)) ?></div>
       <div class="conv-info">
-        <div class="conv-name">Beloved MAZUA</div>
-        <div class="conv-preview">J'ai envoyé le fichier</div>
-      </div>
-      <div class="conv-meta">
-        <div class="conv-time">Hier</div>
+        <div class="conv-name"><?= htmlspecialchars($ens['prenom'] . ' ' . $ens['nom']) ?> <span class="tag-public" style="margin-left:4px; font-size:9px;"><?= strtoupper($ens['role']) ?></span></div>
+        <div class="conv-preview">Discuter avec l'enseignant</div>
       </div>
     </div>
-
-    <div class="conv-item" onclick="selectConv(this)">
-      <div class="avatar avatar-indigo" style="font-size:13px;font-weight:700;">FN</div>
-      <div class="conv-info">
-        <div class="conv-name">Dan BAKENDA</div>
-        <div class="conv-preview">Ok vu, merci !</div>
-      </div>
-      <div class="conv-meta">
-        <div class="conv-time">Hier</div>
-      </div>
-    </div>
-
-    <div class="section-label">Enseignant → Étudiant</div>
-
-    <div class="conv-item" onclick="selectConv(this)">
-      <div class="avatar avatar-blue" style="font-size:13px;font-weight:700;">PM</div>
-      <div class="conv-info">
-        <div class="conv-name">Prof. MAMPUYA <span class="tag-public" style="margin-left:4px;">PUBLIC</span></div>
-        <div class="conv-preview">N'oubliez pas la soutenance jeudi</div>
-      </div>
-      <div class="conv-meta">
-        <div class="conv-time">09:00</div>
-      </div>
-    </div>
+    <?php endforeach; ?>
 
   </div>
 
@@ -115,11 +125,11 @@
       🎓
     </div>
     <div class="profile-info">
-      <h4>Samiel Banzolele</h4>
-      <span>Étudiant · L2 FASI</span>
+      <h4><?= htmlspecialchars($currentUser['prenom'] . ' ' . $currentUser['nom']) ?></h4>
+      <span>Étudiant · <?= htmlspecialchars($promotionNom) ?></span>
     </div>
     <div class="profile-actions">
-      <a href="login.html" class="icon-btn" title="Déconnexion">🚪</a>
+      <a href="/FasiChatClassroom/public/login" class="icon-btn" title="Déconnexion">🚪</a>
     </div>
   </div>
 </div>
@@ -129,154 +139,24 @@
   <div class="chat-topbar">
     <div class="chat-topbar-avatar">👥</div>
     <div class="chat-topbar-info">
-      <h3>PHP POO — Promo L2</h3>
-      <p>28 membres · 3 en ligne</p>
+      <h3 id="topbarTitle"><?= htmlspecialchars($promotionNom) ?></h3>
+      <p>Messagerie active</p>
     </div>
-    <div class="status-badge public">
+    <div class="status-badge public" id="statusBadge">
       <div class="status-dot"></div>
       Message Public
-    </div>
-    <div class="topbar-actions">
-      <button class="topbar-btn" title="Membres">👥</button>
-      <button class="topbar-btn" title="Fichiers">📁</button>
-      <button class="topbar-btn" title="Rechercher">🔍</button>
     </div>
   </div>
 
   <div class="chat-messages" id="messages">
-    <div class="date-sep">Aujourd'hui</div>
-
-    <!-- Prof message -->
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">PM</div>
-      <div class="msg-group">
-        <div class="msg-sender">Prof. MAMPUYA · 08:45</div>
-        <div class="bubble theirs">Bonjour à tous ! Rappel : les projets FasiChat sont à rendre avant vendredi 23h59. Assurez-vous de respecter les principes de la POO. Bon courage ! 🎯</div>
-        <div class="msg-meta">08:45</div>
-      </div>
-    </div>
-
-    <!-- File message from prof -->
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">PM</div>
-      <div class="msg-group">
-        <div class="msg-sender">Prof. MAMPUYA · 08:47</div>
-        <div class="file-bubble">
-          <div class="file-icon">📄</div>
-          <div class="file-info">
-            <h5>Sujet_Projet_PHP_POO.pdf</h5>
-            <p>2.4 Mo · PDF</p>
-          </div>
-          <span style="font-size:18px;margin-left:auto;">⬇</span>
-        </div>
-        <div class="msg-meta">08:47</div>
-      </div>
-    </div>
-
-    <!-- Student message -->
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);">AM</div>
-      <div class="msg-group">
-        <div class="msg-sender">Daniel Bemba · 09:10</div>
-        <div class="bubble theirs">Merci Professeur, est-ce que le rapport est obligatoire ou optionnel pour la note finale ?</div>
-        <div class="msg-meta">09:10</div>
-      </div>
-    </div>
-
-    <!-- Prof reply -->
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">PM</div>
-      <div class="msg-group">
-        <div class="msg-sender">Prof. MAMPUYA · 09:15</div>
-        <div class="bubble theirs">La conception est <strong>obligatoire</strong> et compte pour 6 points sur 20. C'est un critère essentiel de la modélisation objet. 📐</div>
-        <div class="msg-meta">09:15</div>
-      </div>
-    </div>
-
-    <!-- Voice message from student -->
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">KD</div>
-      <div class="msg-group">
-        <div class="msg-sender">Divine Katende · 10:02</div>
-        <div class="voice-bubble theirs">
-          <button class="play-btn">▶</button>
-          <div class="wave-bars">
-            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-          </div>
-          <span class="voice-dur">0:34</span>
-        </div>
-        <div class="msg-meta">10:02</div>
-      </div>
-    </div>
-
-    <!-- My messages -->
-    <div class="msg-row mine">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,var(--sky),var(--accent));">AF</div>
-      <div class="msg-group">
-        <div class="bubble mine">Professeur, pour la classe abstraite Utilisateur, doit-on y mettre la méthode de connexion ou la laisser dans les classes filles ?</div>
-        <div class="msg-meta">10:18 <span class="check-read">✓✓</span></div>
-      </div>
-    </div>
-
-    <div class="msg-row mine">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,var(--sky),var(--accent));">AF</div>
-      <div class="msg-group">
-        <div class="voice-bubble mine">
-          <button class="play-btn">▶</button>
-          <div class="wave-bars">
-            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-            <div class="wave-bar"></div><div class="wave-bar"></div>
-          </div>
-          <span class="voice-dur">0:47</span>
-        </div>
-        <div class="msg-meta">10:19 <span class="check-read">✓✓</span></div>
-      </div>
-    </div>
-
-    <!-- Prof answer -->
-    <div class="msg-row">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">PM</div>
-      <div class="msg-group">
-        <div class="msg-sender">Prof. MAMPUYA · 10:25</div>
-        <div class="bubble theirs">Excellente question Katende ! La méthode <code style="background:var(--sky-pale);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono';font-size:12px;">seConnecter()</code> doit être déclarée abstraite dans la classe mère et implémentée dans chaque classe fille selon ses règles propres. Pensez au polymorphisme ! 🧠</div>
-        <div class="msg-meta">10:25</div>
-      </div>
-    </div>
-
-    <!-- File from student -->
-    <div class="msg-row mine">
-      <div class="msg-avatar" style="background:linear-gradient(135deg,var(--sky),var(--accent));">AF</div>
-      <div class="msg-group">
-        <div class="file-bubble" style="background:rgba(79,163,224,0.1);border-color:rgba(79,163,224,0.3);">
-          <div class="file-icon">📊</div>
-          <div class="file-info">
-            <h5>Diagramme_Classes_UML.pdf</h5>
-            <p>1.8 Mo · PDF</p>
-          </div>
-          <span style="font-size:18px;margin-left:auto;">⬇</span>
-        </div>
-        <div class="msg-meta">14:10 <span class="check-read">✓</span></div>
-      </div>
-    </div>
-
-  </div><!-- end messages -->
+    <!-- Chargé dynamiquement via JS -->
+  </div>
 
   <!-- Input area -->
   <div class="chat-input-area">
-    <div class="input-toolbar">
-      <button class="toolbar-btn">📎 Fichier</button>
-      <button class="toolbar-btn">🖼 Image</button>
-      <button class="toolbar-btn">🎥 Vidéo</button>
-      <button class="toolbar-btn">📊 PDF</button>
-    </div>
     <div class="input-row">
-      <button class="voice-btn" title="Message vocal">🎤</button>
       <div class="msg-textarea-wrap">
-        <textarea class="msg-textarea" placeholder="Écrire un message...&#10;Appuyez sur Entrée pour envoyer" rows="1" id="msgInput" onkeydown="handleKey(event)"></textarea>
-        <button class="emoji-btn">😊</button>
+        <textarea class="msg-textarea" placeholder="Écrire un message... (Appuyez sur Entrée pour envoyer)" rows="1" id="msgInput" onkeydown="handleKey(event)"></textarea>
       </div>
       <button class="send-btn" onclick="sendMsg()">➤</button>
     </div>
@@ -286,78 +166,35 @@
 <!-- ===== RIGHT PANEL ===== -->
 <div class="right-panel">
   <div class="panel-section">
-    <div class="panel-title">Infos du cours</div>
+    <div class="panel-title">Infos de votre promotion</div>
     <div class="info-card">
-      <h4>PHP — Programmation Orientée Objet</h4>
-      <p>Module semestre 5 · Licence 2 Informatique</p>
+      <h4><?= htmlspecialchars($promotionNom) ?></h4>
+      <p>Faculté des Sciences Informatiques</p>
       <div class="tag-row">
-        <span class="tag tag-blue">L2 FASI</span>
+        <span class="tag tag-blue"><?= htmlspecialchars($promotionNom) ?></span>
         <span class="tag tag-navy">Promo 2026</span>
       </div>
     </div>
   </div>
 
   <div class="panel-section">
-    <div class="panel-title">Enseignants</div>
+    <div class="panel-title">Enseignants Actifs</div>
+    <?php foreach ($enseignants as $ens): ?>
     <div class="member-item">
-      <div class="member-ava" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">PM</div>
+      <div class="member-ava" style="background: linear-gradient(135deg,#3b82f6,#1d4ed8);"><?= strtoupper(substr($ens['prenom'], 0, 1) . substr($ens['nom'], 0, 1)) ?></div>
       <div class="member-info">
-        <h5>Prof. MAMPUYA</h5>
-        <p>Responsable du cours</p>
-      </div>
-      <div class="online-dot" style="width:8px;height:8px;background:var(--online);border-radius:50%;"></div>
-    </div>
-    <div class="member-item">
-      <div class="member-ava" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">AK</div>
-      <div class="member-info">
-        <h5>Ass. BAHATI</h5>
-        <p>Assistant de cours</p>
+        <h5><?= htmlspecialchars($ens['prenom'] . ' ' . $ens['nom']) ?></h5>
+        <p><?= htmlspecialchars(ucfirst($ens['role'])) ?></p>
       </div>
     </div>
-  </div>
-
-  <div class="panel-section">
-    <div class="panel-title">Membres (408)</div>
-    <div class="member-item">
-      <div class="member-ava" style="background:linear-gradient(135deg,var(--sky),var(--accent));">AF</div>
-      <div class="member-info"><h5>Pauline Mona <span style="font-size:9px;color:var(--sky);">(vous)</span></h5><p>Étudiant</p></div>
-      <div class="online-dot" style="width:8px;height:8px;background:var(--online);border-radius:50%;"></div>
-    </div>
-    <div class="member-item">
-      <div class="member-ava" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);">AM</div>
-      <div class="member-info"><h5>Dan MBO</h5><p>Étudiant</p></div>
-      <div class="online-dot" style="width:8px;height:8px;background:var(--online);border-radius:50%;"></div>
-    </div>
-    <div class="member-item">
-      <div class="member-ava" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">KD</div>
-      <div class="member-info"><h5>Audrey Musengi</h5><p>Étudiant</p></div>
-    </div>
-    <div class="member-item">
-      <div class="member-ava" style="background:linear-gradient(135deg,#14b8a6,#0d9488);">FN</div>
-      <div class="member-info"><h5>Belivie IPUNA</h5><p>Étudiant</p></div>
-    </div>
-    <div style="text-align:center;margin-top:8px;">
-      <button style="background:none;border:none;font-family:'Sora',sans-serif;font-size:12px;color:var(--sky);cursor:pointer;font-weight:600;">Voir tous les membres →</button>
-    </div>
-  </div>
-
-  <div class="panel-section">
-    <div class="panel-title">Fichiers partagés</div>
-    <div class="info-card" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--sky)'" onmouseout="this.style.borderColor='var(--gray-200)'">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:20px;">📄</span>
-        <div><h4>Sujet_Projet.pdf</h4><p>2.4 Mo · Aujourd'hui</p></div>
-      </div>
-    </div>
-    <div class="info-card" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--sky)'" onmouseout="this.style.borderColor='var(--gray-200)'">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:20px;">📊</span>
-        <div><h4>Cours_POO_S5.pdf</h4><p>5.1 Mo · Hier</p></div>
-      </div>
-    </div>
+    <?php endforeach; ?>
   </div>
 </div>
 
 <script src="/FasiChatClassroom/public/assets/js/etudiant.js"></script>
+<script>
+    // Initialise la messagerie dynamique pour l'étudiant connecté
+    initChat(<?= $currentUser['id'] ?>, <?= $promotionId ?>);
+</script>
 </body>
 </html>
