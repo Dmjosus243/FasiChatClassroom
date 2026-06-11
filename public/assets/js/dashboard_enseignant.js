@@ -1,19 +1,18 @@
 // Variables globales
-let currentChatType = 'public'; // 'prive', 'public', 'mur'
-let currentChatId = 1;         // ID de la cible
-let currentChatName = 'PHP POO — Promo L2';
+let currentChatType = 'public';
+let currentChatId = 1;
 let currentUserId = null;
 let selectedFileId = null;
 
 // Initialisation (appelée depuis le PHP)
-function initChat(userId, defaultPromoId) {
+window.initChat = function(userId, defaultPromoId) {
     currentUserId = userId;
     currentChatId = defaultPromoId;
     loadMessages();
     setInterval(loadMessages, 3000);
-}
+};
 
-function showView(view, btn) {
+window.showView = function(view, btn) {
     document.getElementById('view-students').classList.remove('visible');
     document.getElementById('view-mur').classList.remove('visible');
     document.getElementById('view-msgs').classList.remove('visible');
@@ -25,22 +24,23 @@ function showView(view, btn) {
         document.getElementById('input-area').style.display = 'block';
     }
     if (btn) { document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
-}
+};
 
-function selectConv(item, title, icon, bg, sub, type, id) {
-    document.querySelectorAll('.conv-item').forEach(i => i.classList.remove('active'));
-    item.classList.add('active');
+window.selectConv = function(item, title, icon, bg, sub, type, id) {
+    if (item) {
+        document.querySelectorAll('.conv-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+    }
     currentChatType = type;
     currentChatId = id;
-    currentChatName = title;
     document.getElementById('topbarTitle').textContent = title;
     document.getElementById('topbarSub').textContent = sub;
     loadMessages();
-}
+};
 
-function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }
+window.handleKey = function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.sendMsg(); } };
 
-function sendMsg() {
+window.sendMsg = function() {
     const ta = document.getElementById('msgInput');
     const text = ta.value.trim();
     if (!text && !selectedFileId) return;
@@ -65,7 +65,7 @@ function sendMsg() {
             alert('Erreur: ' + (data.error || 'Échec de l\'envoi'));
         }
     });
-}
+};
 
 function loadMessages() {
     if (!currentChatId) return;
@@ -74,6 +74,11 @@ function loadMessages() {
     .then(messages => {
         const container = document.getElementById('view-msgs');
         container.innerHTML = '';
+        if (messages.length === 0) {
+            container.innerHTML = '<div class="date-sep">Aucun message.</div>';
+            return;
+        }
+        
         messages.forEach(msg => {
             const estLeMien = (parseInt(msg.expediteur_id) === parseInt(currentUserId));
             const row = document.createElement('div');
@@ -81,11 +86,11 @@ function loadMessages() {
             const heure = new Date(msg.date_envoi).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             
             let fileHtml = '';
-            if (msg.fichier_id) {
+            if (msg.fichier_id && msg.nom_stockage) {
                 fileHtml = `<div class="file-bubble">
                                 <div class="file-icon">📎</div>
                                 <div class="file-info">Fichier Joint</div>
-                                <a href="/FasiChatClassroom/public/assets/uploads/${msg.nom_stockage}" target="_blank" style="color:white; text-decoration:underline; margin-left:auto;">⬇</a>
+                                <a href="/FasiChatClassroom/public/assets/uploads/${msg.nom_stockage}" target="_blank">⬇</a>
                             </div>`;
             }
 
@@ -97,7 +102,6 @@ function loadMessages() {
                     <div class="msg-sender">${msg.prenom} ${msg.nom} · ${heure}</div>
                     ${fileHtml}
                     <div class="bubble ${estLeMien ? 'mine' : 'theirs'}">${escapeHTML(msg.contenu)}</div>
-                    <div class="msg-meta">${heure} ${estLeMien ? '<span class="check-read">✓✓</span>' : ''}</div>
                 </div>`;
             container.appendChild(row);
         });
@@ -109,11 +113,11 @@ function escapeHTML(str) {
     return str.replace(/[&<>'"]/g, tag => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'':'&#39;','"':'&quot;'}[tag] || tag));
 }
 
-function triggerUpload() {
+window.triggerUpload = function() {
     document.getElementById('fileInput').click();
-}
+};
 
-function handleFileUpload(input) {
+window.handleFileUpload = function(input) {
     if (input.files && input.files[0]) {
         const formData = new FormData();
         formData.append('file', input.files[0]);
@@ -126,7 +130,7 @@ function handleFileUpload(input) {
             }
         });
     }
-}
+};
 
 document.getElementById('msgInput').addEventListener('input', function() {
     this.style.height = 'auto';

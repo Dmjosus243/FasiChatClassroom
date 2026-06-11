@@ -3,7 +3,6 @@ console.log('etudiant.js loaded successfully');
 // Variables globales
 let currentChatType = 'public';
 let currentChatId = 1;
-let currentChatName = 'Promo';
 let currentUserId = null;
 let selectedFileId = null;
 
@@ -42,7 +41,6 @@ window.changerDiscussion = function(element, type, id, name) {
     element.classList.add('active');
     currentChatType = type;
     currentChatId = id;
-    currentChatName = name;
     document.getElementById('topbarTitle').textContent = name;
     
     const badge = document.getElementById('statusBadge');
@@ -72,8 +70,6 @@ window.sendMsg = function() {
     if (currentChatType === 'prive') formData.append('destinataire_id', currentChatId);
     else if (currentChatType === 'public') formData.append('promotion_id', currentChatId);
     else if (currentChatType === 'mur') formData.append('cours_id', currentChatId);
-    
-    console.log('Sending message:', Object.fromEntries(formData.entries())); // DEBUG
     
     fetch('/FasiChatClassroom/public/message-send', { method: 'POST', body: formData })
     .then(res => res.json())
