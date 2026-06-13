@@ -1,0 +1,13 @@
+{
+    "name": "fasichat/classroom",
+    "description": "Plateforme de chat pour la faculté",
+    "type": "project",
+    "require": {
+        "php": ">=7.4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "": "src/"
+        }
+    }
+}
