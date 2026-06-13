@@ -4,7 +4,7 @@ class Database {
     private $host = 'localhost';
     private $dbname = 'fasichat';
     private $username = 'root';
-    private $password = 'michel';
+    private $password = 'Mandom+243';
 
     private ? PDO $conn = null;
 
