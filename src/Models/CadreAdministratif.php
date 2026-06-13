@@ -1,7 +1,8 @@
 <?php
+namespace Models;
+
 abstract class CadreAdministratif extends Utilisateur {
 
-    // Méthode partagée par le Doyen et le Vice-Doyen pour envoyer une convocation de réunion
     public function convoquer($db, $objet, $date, $heure, $lieu, $message = '') {
         $texteMessage = "CONVOCATION : " . $objet . " | Date : " . $date . " à " . $heure . " | Lieu : " . $lieu;
         if (!empty($message)) {

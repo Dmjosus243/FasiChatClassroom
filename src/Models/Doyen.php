@@ -1,6 +1,8 @@
 <?php
 namespace Models;
 
+use Helpers\SessionHelper;
+
 class Doyen extends Utilisateur
 {
     public function convoquer($db, $objet, $date, $heure, $lieu, $message)

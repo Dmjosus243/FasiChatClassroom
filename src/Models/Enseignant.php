@@ -1,14 +1,14 @@
 <?php
+namespace Models;
 
 class Enseignant extends Utilisateur {
     private $db;
 
     public function __construct($db, $data = []) {
-        parent::__construct($data);
+        parent::__construct($db, $data);
         $this->db = $db;
     }
 
-    // Méthode pour récupérer la liste des cours assignés à cet enseignant
     public function getMesCours() {
         $query = "SELECT c.* FROM cours c 
                   JOIN enseignant_cours ec ON c.id = ec.cours_id 

@@ -76,7 +76,7 @@
       <button class="role-btn" onclick="setRole(this)">Assistant</button>
     </div>
 
-    <form action="/FasiChatClassroom/public/login-handler" method="post">
+    <form action="/FasiChatClassroom/public/login" method="post">
       <!-- Rôle sélectionné caché -->
       <input type="hidden" name="role" id="role-input" value="étudiant">
 

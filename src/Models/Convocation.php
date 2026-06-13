@@ -33,4 +33,14 @@ class Convocation
         }
         return true;
     }
+
+    public function recupererToutes()
+    {
+        $sql = "SELECT c.*, u.nom as expediteur_nom, u.prenom as expediteur_prenom 
+                FROM convocations c 
+                JOIN utilisateurs u ON c.created_by = u.id 
+                ORDER BY c.created_at DESC";
+        $stmt = $this->db->query($sql);
+        return $stmt->fetchAll();
+    }
 }

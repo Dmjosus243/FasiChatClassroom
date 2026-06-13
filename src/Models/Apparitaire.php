@@ -1,11 +1,11 @@
 <?php
-// src/Models/Apparitaire.php
+namespace Models;
 
 class Apparitaire extends Utilisateur {
     private $db;
 
     public function __construct($db, $data = []) {
-        parent::__construct($data);
+        parent::__construct($db, $data);
         $this->db = $db;
     }
 

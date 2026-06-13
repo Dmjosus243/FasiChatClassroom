@@ -1,31 +1,20 @@
 <?php
-// views/dashboard_enseignant.php
 session_start();
-
-if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], ['enseignant', 'assistant'])) {
+if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'assistant') {
     header('Location: /FasiChatClassroom/public/login');
     exit();
 }
-
 $currentUser = $_SESSION['user'];
-
 require_once __DIR__ . '/../src/Autoloader.php';
 require_once __DIR__ . '/../database/Database.php';
-
 $dbInstance = new Database();
 $db = $dbInstance->getConnection();
-
-// Récupérer les étudiants
 $stmtEtud = $db->query("SELECT * FROM utilisateurs WHERE role = 'etudiant'");
 $etudiants = $stmtEtud->fetchAll();
-
-// Récupérer les collègues enseignants/assistants
 $stmtColl = $db->prepare("SELECT * FROM utilisateurs WHERE role IN ('enseignant', 'assistant') AND id != :my_id");
 $stmtColl->execute(['my_id' => $currentUser['id']]);
 $collegues = $stmtColl->fetchAll();
-
-// Récupérer les convocations reçues
-$convocModel = new Convocation($db);
+$convocModel = new \Models\Convocation($db);
 $convocations = $convocModel->recupererToutes();
 ?>
 <!DOCTYPE html>
@@ -33,17 +22,15 @@ $convocations = $convocModel->recupererToutes();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FasiChat — Dashboard Enseignant</title>
+<title>FasiChat — Dashboard Assistant</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/FasiChatClassroom/public/assets/css/dashboard_enseignant.css">
 </head>
 <body>
-
-<!-- SIDEBAR -->
 <div class="sidebar">
   <div class="sidebar-header">
     <div class="brand-mark">💬</div>
-    <div class="brand-info"><h3>FasiChat</h3><span>Espace Enseignant</span></div>
+    <div class="brand-info"><h3>FasiChat</h3><span>Espace Assistant</span></div>
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showView('students',this)">👥 Étudiants</button>
@@ -59,12 +46,11 @@ $convocations = $convocModel->recupererToutes();
   </div>
   <div class="conv-list">
     <div class="section-label">Mes Cours</div>
-    <div class="conv-item active" onclick="selectConv(this,'Programation Web — L2 FASI','🖥','linear-gradient(135deg,#3b82f6,#1d4ed8)','450 étudiants','public', 1)">
+    <div class="conv-item active" onclick="selectConv(this,'PHP POO — L2 FASI','🖥','linear-gradient(135deg,#3b82f6,#1d4ed8)','Cours Public','public', 1)">
       <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">🖥</div>
-      <div class="conv-info"><div class="conv-name">Programation Web — L2 FASI</div><div class="conv-preview">Cours Public</div></div>
-      <div class="conv-meta"><div class="conv-time">Actif</div><div class="conv-badge">5</div></div>
+      <div class="conv-info"><div class="conv-name">PHP POO — L2 FASI</div><div class="conv-preview">Cours Public</div></div>
+      <div class="conv-meta"><div class="conv-time">Actif</div><div class="conv-badge">3</div></div>
     </div>
-
     <div class="section-label">Collègues (Privé)</div>
     <?php foreach ($collegues as $col): ?>
     <div class="conv-item" onclick="selectConv(this,'<?= htmlspecialchars($col['prenom'].' '.$col['nom'], ENT_QUOTES) ?>','👤','linear-gradient(135deg,#6366f1,#4f46e5)','<?= ucfirst($col['role']) ?>','prive', <?= $col['id'] ?>)">
@@ -72,10 +58,9 @@ $convocations = $convocModel->recupererToutes();
       <div class="conv-info"><div class="conv-name"><?= htmlspecialchars($col['prenom'].' '.$col['nom']) ?></div><div class="conv-preview">Chat privé</div></div>
     </div>
     <?php endforeach; ?>
-
     <div class="section-label">Convocations reçues</div>
     <?php if (empty($convocations)): ?>
-        <div style="padding: 10px; font-size: 12px; color: #9ca3af; text-align: center;">Aucune convocation</div>
+        <div style="padding:10px;font-size:12px;color:#9ca3af;text-align:center;">Aucune convocation</div>
     <?php else: ?>
         <?php foreach ($convocations as $conv): ?>
         <div class="conv-item" onclick="alert('Détails : <?= htmlspecialchars($conv['objet']) ?>\nLieu : <?= htmlspecialchars($conv['lieu']) ?>\nDate : <?= htmlspecialchars(($conv['date_convocation'] ?? '') . ' ' . ($conv['heure_convocation'] ?? '')) ?>')">
@@ -94,18 +79,16 @@ $convocations = $convocModel->recupererToutes();
   </div>
   <div class="sidebar-profile">
     <div class="profile-avatar"><div class="online-dot"></div>👨‍🏫</div>
-    <div class="profile-info"><h4><?= htmlspecialchars($currentUser['prenom'] . ' ' . $currentUser['nom']) ?></h4><span><?= ucfirst($currentUser['role']) ?></span></div>
+    <div class="profile-info"><h4><?= htmlspecialchars($currentUser['prenom'] . ' ' . $currentUser['nom']) ?></h4><span>Assistant</span></div>
     <div class="profile-actions"><a href="/FasiChatClassroom/public/login" class="icon-btn">🚪</a></div>
   </div>
 </div>
-
-<!-- MAIN AREA -->
 <div class="main-area">
   <div class="chat-topbar">
     <div class="chat-topbar-avatar" id="topbarAvatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">🖥</div>
     <div class="chat-topbar-info">
-      <h3 id="topbarTitle">Programation Web — L2 FASI</h3>
-      <p id="topbarSub">450 étudiants · 3 en ligne</p>
+      <h3 id="topbarTitle">PHP POO — L2 FASI</h3>
+      <p id="topbarSub">Chargement...</p>
     </div>
     <div class="status-badge public"><div class="status-dot"></div>Cours Public</div>
     <div class="topbar-actions">
@@ -114,11 +97,9 @@ $convocations = $convocModel->recupererToutes();
       <button class="topbar-btn primary" onclick="showView('msgs',null)">💬 Messagerie</button>
     </div>
   </div>
-
-  <!-- Students view -->
   <div class="students-panel visible" id="view-students">
     <div class="panel-header">
-      <div><h2>Liste des étudiants</h2><p>Programation Web — Licence 2 Informatique · 450 inscrits</p></div>
+      <div><h2>Liste des étudiants</h2><p>Chargement...</p></div>
     </div>
     <div class="search-students">
       <div class="search-field">
@@ -130,33 +111,21 @@ $convocations = $convocModel->recupererToutes();
       <button class="filter-btn">Hors ligne</button>
     </div>
     <div class="students-grid">
-      <!-- Liste statique restaurée -->
       <div class="student-card">
         <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">DA</div>
-          <div><div class="sc-name">Daniel Ayivi</div></div>
+          <div class="sc-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">ET</div>
+          <div><div class="sc-name">Étudiant</div></div>
         </div>
         <div class="sc-actions">
-          <button class="sc-btn msg" onclick="selectConv(null, 'Daniel Ayivi','👤','linear-gradient(135deg,#3b82f6,#1d4ed8)','Étudiant','prive', 101); showView('msgs', document.querySelectorAll('.nav-tab')[2])">💬 Message</button>
-        </div>
-      </div>
-      <div class="student-card">
-        <div class="sc-header">
-          <div class="sc-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">MM</div>
-          <div><div class="sc-name">Mamadou Mbaye</div></div>
-        </div>
-        <div class="sc-actions">
-          <button class="sc-btn msg" onclick="selectConv(null, 'Mamadou Mbaye','👤','linear-gradient(135deg,#3b82f6,#1d4ed8)','Étudiant','prive', 102); showView('msgs', document.querySelectorAll('.nav-tab')[2])">💬 Message</button>
+          <button class="sc-btn msg" onclick="selectConv(null, 'Étudiant','👤','linear-gradient(135deg,#3b82f6,#1d4ed8)','Étudiant','prive', 1); showView('msgs', document.querySelectorAll('.nav-tab')[2])">💬 Message</button>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Mur pédagogique view -->
   <div class="mur-panel" id="view-mur">
     <div class="mur-compose">
-      <h3>📋 Publier sur le mur — PHP POO L3</h3>
-      <textarea class="mur-textarea" placeholder="Rédigez une question, un rappel ou une annonce pour vos étudiants..."></textarea>
+      <h3>📋 Publier sur le mur pédagogique</h3>
+      <textarea class="mur-textarea" placeholder="Rédigez une question, un rappel ou une annonce..."></textarea>
       <div class="mur-footer">
         <div class="mur-attach">
           <button class="attach-btn">📎 Fichier</button>
@@ -166,23 +135,11 @@ $convocations = $convocModel->recupererToutes();
       </div>
     </div>
     <div id="mur-posts">
-      <div class="mur-post">
-        <div class="post-header">
-          <div class="post-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706);">PM</div>
-          <div><div class="post-author">Prof. Mbaye</div><div class="post-meta">Aujourd'hui à 08:45 · PHP POO L2 FASI</div></div>
-          <div class="post-actions"><button class="post-action-btn">✏️</button><button class="post-action-btn">🗑</button></div>
-        </div>
-        <div class="post-content">Rappel important : le projet FasiChat est à rendre avant <strong>vendredi 23h59</strong>. Assurez-vous que votre diagramme UML est complet et que votre code respecte les principes de la POO vus en cours. Bon courage à tous ! 🎯</div>
-      </div>
     </div>
   </div>
-
-  <!-- Chat messages view -->
   <div class="chat-messages" id="view-msgs">
     <div class="date-sep">Chargement des messages...</div>
   </div>
-
-  <!-- Input (shown for msgs view) -->
   <div class="chat-input-area" id="input-area" style="display:none;">
     <div class="input-row">
       <div class="msg-textarea-wrap">
@@ -194,31 +151,20 @@ $convocations = $convocModel->recupererToutes();
     </div>
   </div>
 </div>
-
 <div class="right-panel">
   <div class="panel-section">
     <div class="panel-title">Statistiques</div>
     <div class="info-card">
-      <h4>PHP POO — L3 Info</h4>
+      <h4>PHP POO — L2 FASI</h4>
       <div class="stat-row">
-        <div class="stat-box"><div class="num">28</div><div class="lbl">Étudiants</div></div>
-        <div class="stat-box"><div class="num">3</div><div class="lbl">En ligne</div></div>
-        <div class="stat-box"><div class="num">14</div><div class="lbl">Messages</div></div>
+        <div class="stat-box"><div class="num">0</div><div class="lbl">Étudiants</div></div>
+        <div class="stat-box"><div class="num">0</div><div class="lbl">En ligne</div></div>
+        <div class="stat-box"><div class="num">0</div><div class="lbl">Messages</div></div>
       </div>
     </div>
   </div>
-  <div class="panel-section">
-    <div class="panel-title">Convocations reçues</div>
-    <div id="convoc-list-right">
-        <!-- Rempli dynamiquement via PHP -->
-    </div>
-  </div>
 </div>
-
 <script src="/FasiChatClassroom/public/assets/js/dashboard_enseignant.js"></script>
-<script>
-    // Initialisation du chat pour l'enseignant
-    initChat(<?= $currentUser['id'] ?>, 1); // 1 est l'ID par défaut de la promo L2 FASI
-</script>
+<script>initChat(<?= $currentUser['id'] ?>, 1);</script>
 </body>
 </html>
