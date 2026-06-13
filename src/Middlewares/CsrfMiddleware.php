@@ -13,7 +13,6 @@ class CsrfMiddleware extends Middleware
         if ($request->getMethod() === 'POST') {
             $body = $request->getBody();
             $token = $body['csrf_token'] ?? '';
-            
             if (!SecurityHelper::verifyCsrfToken($token)) {
                 $response->json(['error' => 'Token CSRF invalide'], 403);
             }

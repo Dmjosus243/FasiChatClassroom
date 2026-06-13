@@ -1,27 +1,6 @@
-# Dependencies
 /vendor/
 /composer.lock
-
-# IDE
 /.idea/
-/.vscode/
-*.sublime-*
-
-# OS
 .DS_Store
-Thumbs.db
-
-# Logs
-*.log
-/logs/
-
-# Uploads
 /public/assets/uploads/*
-
-# Config
 .env
-config/database.local.php
-
-# Temp files
-*.tmp
-*.cache

@@ -14,35 +14,83 @@ class MessageController extends Controller
 
     public function __construct()
     {
-        $database = new Database();
+        $dbConfig = require __DIR__ . '/../../config/database.php';
+        $database = new Database($dbConfig);
         $this->messageService = new MessageService($database->getConnection());
     }
 
     public function send(Request $request, Response $response): void
     {
         $data = $request->getBody();
-        $files = $request->getFiles();
-        
-        $fileId = null;
-        if (isset($files['file']) && $files['file']['error'] === UPLOAD_ERR_OK) {
-            $fileId = $this->messageService->uploadFile($files['file']);
-            if (!$fileId) {
-                $response->json(['success' => false, 'error' => 'Erreur lors de l\'upload'], 400);
-                return;
-            }
-            $data['fichier_id'] = $fileId;
-        }
-        
         $success = $this->messageService->sendMessage($data);
         $response->json(['success' => $success]);
+    }
+
+    public function sendAudio(Request $request, Response $response): void
+    {
+        $data = $request->getBody();
+        $files = $request->getFiles();
+        
+        if (!isset($files['audio']) || $files['audio']['error'] !== UPLOAD_ERR_OK) {
+            $response->json(['success' => false, 'error' => 'Fichier audio requis'], 400);
+            return;
+        }
+        
+        if (empty($data['destinataire_id'])) {
+            $response->json(['success' => false, 'error' => 'Destinataire requis'], 400);
+            return;
+        }
+        
+        $success = $this->messageService->sendAudioMessage(
+            (int)$data['destinataire_id'],
+            $data['contenu'] ?? 'Message audio',
+            $files['audio'],
+            isset($data['duree']) ? (int)$data['duree'] : null
+        );
+        
+        $response->json(['success' => $success !== null, 'error' => $success === null ? 'Format non supporté' : null]);
+    }
+
+    public function sendFile(Request $request, Response $response): void
+    {
+        $data = $request->getBody();
+        $files = $request->getFiles();
+        
+        if (!isset($files['file']) || $files['file']['error'] !== UPLOAD_ERR_OK) {
+            $response->json(['success' => false, 'error' => 'Fichier requis'], 400);
+            return;
+        }
+        
+        if (empty($data['destinataire_id'])) {
+            $response->json(['success' => false, 'error' => 'Destinataire requis'], 400);
+            return;
+        }
+        
+        $success = $this->messageService->sendFileMessage(
+            (int)$data['destinataire_id'],
+            $data['contenu'] ?? 'Fichier joint',
+            $files['file']
+        );
+        
+        $response->json(['success' => $success !== null, 'error' => $success === null ? 'Type de fichier non supporté' : null]);
     }
 
     public function poll(Request $request, Response $response): void
     {
         $type = $request->getQueryParams()['type'] ?? 'prive';
-        $id = $request->getQueryParams()['id'] ?? 0;
+        $id = (int)($request->getQueryParams()['id'] ?? 0);
         
-        $messages = $this->messageService->getMessages($type, (int)$id);
+        $messages = $this->messageService->getMessages($type, $id);
+        
+        foreach ($messages as &$message) {
+            if (!empty($message['fichier_chemin'])) {
+                $message['fichier_url'] = '/FasiChatClassroom/public/assets/uploads/' . $message['fichier_chemin'];
+            }
+            if (!empty($message['duree_audio'])) {
+                $message['duree_formatee'] = gmdate("i:s", $message['duree_audio']);
+            }
+        }
+        
         $response->json($messages);
     }
 }

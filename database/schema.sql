@@ -1,83 +1,149 @@
+-- Correction de la faute de frappe ici
 CREATE DATABASE IF NOT EXISTS fasichat;
 USE fasichat;
 
--- 1. Table des utilisateurs
+-- Table des utilisateurs
 CREATE TABLE IF NOT EXISTS utilisateurs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nom VARCHAR(100),
-    prenom VARCHAR(100),
-    email VARCHAR(100) UNIQUE,
-    mot_de_passe VARCHAR(255),
-    role VARCHAR(50) 
+    nom VARCHAR(100) NOT NULL,
+    prenom VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    mot_de_passe VARCHAR(255) NOT NULL,
+    role ENUM('etudiant', 'enseignant', 'assistant', 'apparitaire', 'doyen', 'vice-doyen') NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 2. Table des promotions (L1, L2, L3...)
+-- Table des promotions
 CREATE TABLE IF NOT EXISTS promotions (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nom VARCHAR(50) NOT NULL
+    nom VARCHAR(100) NOT NULL,
+    annee INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Table des cours
+-- Table des étudiants
+CREATE TABLE IF NOT EXISTS etudiants (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    matricule VARCHAR(50) NOT NULL UNIQUE,
+    promotion_id INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE
+);
+
+-- Table des cours
 CREATE TABLE IF NOT EXISTS cours (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL,
-    promotion_id INT,
-    FOREIGN KEY (promotion_id) REFERENCES promotions(id)
+    nom VARCHAR(200) NOT NULL,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    enseignant_id INT,
+    assistant_id INT,
+    promotion_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (enseignant_id) REFERENCES utilisateurs(id) ON DELETE SET NULL,
+    FOREIGN KEY (assistant_id) REFERENCES utilisateurs(id) ON DELETE SET NULL,
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE
 );
 
--- 4. Table des messages
+-- Table d'inscription des cours
+CREATE TABLE IF NOT EXISTS inscription_cours (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    etudiant_id INT NOT NULL,
+    cours_id INT NOT NULL,
+    date_inscription DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (etudiant_id) REFERENCES etudiants(id) ON DELETE CASCADE,
+    FOREIGN KEY (cours_id) REFERENCES cours(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_inscription (etudiant_id, cours_id)
+);
+
+-- Table des fichiers
+CREATE TABLE IF NOT EXISTS fichiers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(255) NOT NULL,
+    nom_original VARCHAR(255) NOT NULL,
+    chemin VARCHAR(500) NOT NULL,
+    type ENUM('image', 'audio', 'document') NOT NULL,
+    taille INT NOT NULL,
+    duree INT NULL, -- Utile pour les audios (en secondes)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table des messages
 CREATE TABLE IF NOT EXISTS messages (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    expediteur_id INT,
-    contenu TEXT,
-    date_envoi DATETIME DEFAULT CURRENT_TIMESTAMP,
-    type VARCHAR(20), -- 'prive', 'public', 'mur', 'convocation'
-    cours_id INT NULL, -- Utilisé si type = 'mur'
-    promotion_id INT NULL, -- Utilisé si type = 'public'
-    FOREIGN KEY (expediteur_id) REFERENCES utilisateurs(id),
-    FOREIGN KEY (cours_id) REFERENCES cours(id),
-    FOREIGN KEY (promotion_id) REFERENCES promotions(id)
-);
-
--- 5. Table des destinataires (pour les messages privés)
-CREATE TABLE IF NOT EXISTS messages_destinataires (
-    message_id INT,
-    destinataire_id INT,
+    expediteur_id INT NOT NULL,
+    destinataire_id INT NULL, -- NULL si c'est un message de groupe/public
+    contenu TEXT NOT NULL,
+    type ENUM('prive', 'public', 'groupe') DEFAULT 'prive',
+    type_media ENUM('text', 'audio', 'file') DEFAULT 'text',
+    cours_id INT NULL,
+    promotion_id INT NULL,
+    fichier_id INT NULL,
+    duree_audio INT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     lu BOOLEAN DEFAULT FALSE,
-    PRIMARY KEY (message_id, destinataire_id),
-    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
-    FOREIGN KEY (destinataire_id) REFERENCES utilisateurs(id)
+    FOREIGN KEY (expediteur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    FOREIGN KEY (destinataire_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    FOREIGN KEY (cours_id) REFERENCES cours(id) ON DELETE CASCADE,
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE,
+    FOREIGN KEY (fichier_id) REFERENCES fichiers(id) ON DELETE SET NULL
 );
 
--- 6. Table des annonces (Valve)
-CREATE TABLE IF NOT EXISTS annonces (
+-- Table du mur pédagogique
+CREATE TABLE IF NOT EXISTS mur_pedagogique (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    titre VARCHAR(255),
-    contenu TEXT,
-    date_publication DATETIME DEFAULT CURRENT_TIMESTAMP,
-    auteur_id INT,
-    FOREIGN KEY (auteur_id) REFERENCES utilisateurs(id)
+    contenu TEXT NOT NULL,
+    user_id INT NOT NULL,
+    cours_id INT NOT NULL,
+    fichier_id INT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    FOREIGN KEY (cours_id) REFERENCES cours(id) ON DELETE CASCADE,
+    FOREIGN KEY (fichier_id) REFERENCES fichiers(id) ON DELETE SET NULL
 );
 
--- 7. Table des convocations
+-- Table des convocations
 CREATE TABLE IF NOT EXISTS convocations (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    message_id INT,
-    objet VARCHAR(255),
-    date_heure DATETIME,
-    lieu VARCHAR(255),
-    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+    objet VARCHAR(255) NOT NULL,
+    date_convocation DATE NOT NULL,
+    heure_convocation TIME NOT NULL,
+    lieu VARCHAR(255) NOT NULL,
+    message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by INT NOT NULL,
+    FOREIGN KEY (created_by) REFERENCES utilisateurs(id) ON DELETE CASCADE
 );
 
--- 8. Insertion des comptes de test
-INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, role) VALUES
-('Test', 'Etudiant', 'etudiant@test.com', '$2y$12$C4REsUvXwppW89MN//Oheus5sb3tn7YyQVlHuXYH37iyjlPdJK7FK', 'etudiant'),
-('Test', 'Enseignant', 'enseignant@test.com', '$2y$12$C4REsUvXwppW89MN//Oheus5sb3tn7YyQVlHuXYH37iyjlPdJK7FK', 'enseignant'),
-('Test', 'Assistant', 'assistant@test.com', '$2y$12$C4REsUvXwppW89MN//Oheus5sb3tn7YyQVlHuXYH37iyjlPdJK7FK', 'assistant'),
-('Test', 'Doyen', 'doyen@test.com', '$2y$12$C4REsUvXwppW89MN//Oheus5sb3tn7YyQVlHuXYH37iyjlPdJK7FK', 'doyen'),
-('Test', 'Vice-Doyen', 'vicedoyen@test.com', '$2y$12$C4REsUvXwppW89MN//Oheus5sb3tn7YyQVlHuXYH37iyjlPdJK7FK', 'vice-doyen'),
-('Test', 'Apparitaire', 'apparitaire@test.com', '$2y$12$C4REsUvXwppW89MN//Oheus5sb3tn7YyQVlHuXYH37iyjlPdJK7FK', 'apparitaire');
+-- Table des destinataires de convocations
+CREATE TABLE IF NOT EXISTS convocation_destinataires (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    convocation_id INT NOT NULL,
+    user_id INT NOT NULL,
+    lu BOOLEAN DEFAULT FALSE,
+    lu_at DATETIME NULL,
+    FOREIGN KEY (convocation_id) REFERENCES convocations(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_destinataire (convocation_id, user_id)
+);
 
--- Insertion de quelques données de base pour les tests
-INSERT INTO promotions (nom) VALUES ('L1 Info'), ('L2 FASI'), ('L3 Info');
-INSERT INTO cours (nom, promotion_id) VALUES ('PHP POO', 2), ('Cybersécurité', 3);
+-- Table des annonces Valve
+CREATE TABLE IF NOT EXISTS annonces_valve (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    titre VARCHAR(255) NOT NULL,
+    contenu TEXT NOT NULL,
+    user_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES utilisateurs(id) ON DELETE CASCADE
+);
+
+-- Insertion des données de test
+INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, role) VALUES
+('Admin', 'Système', 'admin@fasichat.com', '$2y$10$YourHashedPasswordHere', 'doyen'),
+('Dupont', 'Jean', 'jean.dupont@fasichat.com', '$2y$10$YourHashedPasswordHere', 'enseignant'),
+('Martin', 'Marie', 'marie.martin@fasichat.com', '$2y$10$YourHashedPasswordHere', 'etudiant');
+
+-- Insertion d'une promotion
+INSERT INTO promotions (nom, annee) VALUES ('Licence Informatique', 2024);

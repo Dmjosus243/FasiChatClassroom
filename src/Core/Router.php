@@ -4,7 +4,6 @@ namespace Core;
 class Router
 {
     private array $routes = [];
-    private array $middlewares = [];
     private Request $request;
     private Response $response;
 
@@ -16,7 +15,7 @@ class Router
 
     public function add(string $method, string $path, $handler, array $middlewares = []): void
     {
-        $path = $this->normalizePath($path);
+        $path = '/' . trim($path, '/');
         $this->routes[] = [
             'method' => strtoupper($method),
             'path' => $path,
@@ -35,9 +34,14 @@ class Router
         $this->add('POST', $path, $handler, $middlewares);
     }
 
-    private function normalizePath(string $path): string
+    public function put(string $path, $handler, array $middlewares = []): void
     {
-        return '/' . trim($path, '/');
+        $this->add('PUT', $path, $handler, $middlewares);
+    }
+
+    public function delete(string $path, $handler, array $middlewares = []): void
+    {
+        $this->add('DELETE', $path, $handler, $middlewares);
     }
 
     public function dispatch(): void
@@ -76,8 +80,12 @@ class Router
     private function runMiddlewares(array $middlewares): void
     {
         foreach ($middlewares as $middleware) {
-            $middlewareInstance = new $middleware();
-            $middlewareInstance->handle($this->request, $this->response);
+            if (is_callable($middleware)) {
+                $instance = $middleware();
+            } else {
+                $instance = new $middleware();
+            }
+            $instance->handle($this->request, $this->response);
         }
     }
 

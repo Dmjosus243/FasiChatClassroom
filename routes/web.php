@@ -22,75 +22,77 @@ $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/logout', [AuthController::class, 'logout']);
 
-// Routes protégées (authentification requise)
-$protectedMiddlewares = [AuthMiddleware::class, CsrfMiddleware::class];
+// Routes protégées
+$protected = [AuthMiddleware::class, CsrfMiddleware::class];
 
-// Dashboard routes
-$router->get('/dashboard/etudiant', [DashboardController::class, 'etudiant'], $protectedMiddlewares);
-$router->get('/dashboard/enseignant', [DashboardController::class, 'enseignant'], $protectedMiddlewares);
-$router->get('/dashboard/assistant', [DashboardController::class, 'assistant'], $protectedMiddlewares);
-$router->get('/dashboard/apparitaire', [DashboardController::class, 'apparitaire'], $protectedMiddlewares);
-$router->get('/dashboard/doyen', [DashboardController::class, 'doyen'], $protectedMiddlewares);
-$router->get('/dashboard/vicedoyen', [DashboardController::class, 'vicedoyen'], $protectedMiddlewares);
+// Dashboards
+$router->get('/dashboard/etudiant', [DashboardController::class, 'etudiant'], $protected);
+$router->get('/dashboard/enseignant', [DashboardController::class, 'enseignant'], $protected);
+$router->get('/dashboard/assistant', [DashboardController::class, 'assistant'], $protected);
+$router->get('/dashboard/apparitaire', [DashboardController::class, 'apparitaire'], $protected);
+$router->get('/dashboard/doyen', [DashboardController::class, 'doyen'], $protected);
+$router->get('/dashboard/vicedoyen', [DashboardController::class, 'vicedoyen'], $protected);
 
-// Routes messages
-$router->post('/message/send', [MessageController::class, 'send'], $protectedMiddlewares);
-$router->get('/message/poll', [MessageController::class, 'poll'], $protectedMiddlewares);
+// Messages
+$router->post('/message/send', [MessageController::class, 'send'], $protected);
+$router->post('/message/audio', [MessageController::class, 'sendAudio'], $protected);
+$router->post('/message/file', [MessageController::class, 'sendFile'], $protected);
+$router->get('/message/poll', [MessageController::class, 'poll'], $protected);
 
-// Routes convocations (Doyen et Vice-doyen uniquement)
-$convocationMiddlewares = [AuthMiddleware::class, CsrfMiddleware::class, function() {
-    return new RoleMiddleware([ROLE_DOYEN, ROLE_VICE_DOYEN]);
+// Convocations (Doyen & Vice-doyen)
+$convocationRoles = [AuthMiddleware::class, CsrfMiddleware::class, function() {
+    return new RoleMiddleware(['doyen', 'vice-doyen']);
 }];
-$router->post('/convocation/send', [ConvocationController::class, 'send'], $convocationMiddlewares);
+$router->post('/convocation/send', [ConvocationController::class, 'send'], $convocationRoles);
 
-// Routes Valve (Apparitaire uniquement)
-$valveMiddlewares = [AuthMiddleware::class, CsrfMiddleware::class, function() {
-    return new RoleMiddleware([ROLE_APPARITAIRE]);
+// Valve (Apparitaire)
+$valveRoles = [AuthMiddleware::class, CsrfMiddleware::class, function() {
+    return new RoleMiddleware(['apparitaire']);
 }];
-$router->get('/valve', [ValveController::class, 'show'], $protectedMiddlewares);
-$router->post('/valve/publish', [ValveController::class, 'publish'], $valveMiddlewares);
-$router->put('/valve/{id}', [ValveController::class, 'update'], $valveMiddlewares);
-$router->delete('/valve/{id}', [ValveController::class, 'delete'], $valveMiddlewares);
+$router->get('/valve', [ValveController::class, 'show'], $protected);
+$router->post('/valve/publish', [ValveController::class, 'publish'], $valveRoles);
+$router->put('/valve/{id}', [ValveController::class, 'update'], $valveRoles);
+$router->delete('/valve/{id}', [ValveController::class, 'delete'], $valveRoles);
 
-// Routes Étudiant
-$etudiantMiddlewares = [AuthMiddleware::class, function() {
-    return new RoleMiddleware([ROLE_ETUDIANT]);
+// Étudiant
+$etudiantRoles = [AuthMiddleware::class, function() {
+    return new RoleMiddleware(['etudiant']);
 }];
-$router->get('/etudiant/promotion', [EtudiantController::class, 'getPromotion'], $etudiantMiddlewares);
-$router->get('/etudiant/cours', [EtudiantController::class, 'getCours'], $etudiantMiddlewares);
+$router->get('/etudiant/promotion', [EtudiantController::class, 'getPromotion'], $etudiantRoles);
+$router->get('/etudiant/cours', [EtudiantController::class, 'getCours'], $etudiantRoles);
 
-// Routes Enseignant
-$enseignantMiddlewares = [AuthMiddleware::class, function() {
-    return new RoleMiddleware([ROLE_ENSEIGNANT]);
+// Enseignant
+$enseignantRoles = [AuthMiddleware::class, function() {
+    return new RoleMiddleware(['enseignant']);
 }];
-$router->get('/enseignant/cours', [EnseignantController::class, 'getCours'], $enseignantMiddlewares);
-$router->get('/enseignant/etudiants/{cours_id}', [EnseignantController::class, 'getEtudiants'], $enseignantMiddlewares);
+$router->get('/enseignant/cours', [EnseignantController::class, 'getCours'], $enseignantRoles);
+$router->get('/enseignant/etudiants/{cours_id}', [EnseignantController::class, 'getEtudiants'], $enseignantRoles);
 
-// Routes Assistant
-$assistantMiddlewares = [AuthMiddleware::class, function() {
-    return new RoleMiddleware([ROLE_ASSISTANT]);
+// Assistant
+$assistantRoles = [AuthMiddleware::class, function() {
+    return new RoleMiddleware(['assistant']);
 }];
-$router->get('/assistant/cours', [AssistantController::class, 'getCours'], $assistantMiddlewares);
-$router->get('/assistant/etudiants/{cours_id}', [AssistantController::class, 'getEtudiants'], $assistantMiddlewares);
-$router->post('/assistant/question', [AssistantController::class, 'questionMur'], $assistantMiddlewares);
+$router->get('/assistant/cours', [AssistantController::class, 'getCours'], $assistantRoles);
+$router->get('/assistant/etudiants/{cours_id}', [AssistantController::class, 'getEtudiants'], $assistantRoles);
+$router->post('/assistant/question', [AssistantController::class, 'questionMur'], $assistantRoles);
 
-// Routes Apparitaire
-$router->get('/apparitaire/annonces', [ApparitaireController::class, 'getAnnonces'], $valveMiddlewares);
-$router->post('/apparitaire/annonce', [ApparitaireController::class, 'createAnnonce'], $valveMiddlewares);
-$router->put('/apparitaire/annonce/{id}', [ApparitaireController::class, 'updateAnnonce'], $valveMiddlewares);
-$router->delete('/apparitaire/annonce/{id}', [ApparitaireController::class, 'deleteAnnonce'], $valveMiddlewares);
+// Apparitaire
+$router->get('/apparitaire/annonces', [ApparitaireController::class, 'getAnnonces'], $valveRoles);
+$router->post('/apparitaire/annonce', [ApparitaireController::class, 'createAnnonce'], $valveRoles);
+$router->put('/apparitaire/annonce/{id}', [ApparitaireController::class, 'updateAnnonce'], $valveRoles);
+$router->delete('/apparitaire/annonce/{id}', [ApparitaireController::class, 'deleteAnnonce'], $valveRoles);
 
-// Routes Doyen
-$doyenMiddlewares = [AuthMiddleware::class, function() {
-    return new RoleMiddleware([ROLE_DOYEN]);
+// Doyen
+$doyenRoles = [AuthMiddleware::class, function() {
+    return new RoleMiddleware(['doyen']);
 }];
-$router->get('/doyen/statistiques', [DoyenController::class, 'getStatistiques'], $doyenMiddlewares);
-$router->get('/doyen/enseignants', [DoyenController::class, 'getEnseignants'], $doyenMiddlewares);
-$router->get('/doyen/assistants', [DoyenController::class, 'getAssistants'], $doyenMiddlewares);
+$router->get('/doyen/statistiques', [DoyenController::class, 'getStatistiques'], $doyenRoles);
+$router->get('/doyen/enseignants', [DoyenController::class, 'getEnseignants'], $doyenRoles);
+$router->get('/doyen/assistants', [DoyenController::class, 'getAssistants'], $doyenRoles);
 
-// Routes Vice-doyen
-$vicedoyenMiddlewares = [AuthMiddleware::class, function() {
-    return new RoleMiddleware([ROLE_VICE_DOYEN]);
+// Vice-doyen
+$vicedoyenRoles = [AuthMiddleware::class, function() {
+    return new RoleMiddleware(['vice-doyen']);
 }];
-$router->get('/vicedoyen/statistiques', [VicedoyenController::class, 'getStatistiques'], $vicedoyenMiddlewares);
-$router->get('/vicedoyen/convocations', [VicedoyenController::class, 'getConvocations'], $vicedoyenMiddlewares);
+$router->get('/vicedoyen/statistiques', [VicedoyenController::class, 'getStatistiques'], $vicedoyenRoles);
+$router->get('/vicedoyen/convocations', [VicedoyenController::class, 'getConvocations'], $vicedoyenRoles);

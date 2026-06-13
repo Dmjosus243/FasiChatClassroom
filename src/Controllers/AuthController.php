@@ -6,19 +6,17 @@ use Core\Request;
 use Core\Response;
 use Helpers\SessionHelper;
 use Helpers\SecurityHelper;
-use Services\ValidationService;
 use database\Database;
 
 class AuthController extends Controller
 {
     private $db;
-    private $validator;
 
     public function __construct()
     {
-        $database = new Database();
+        $dbConfig = require __DIR__ . '/../../config/database.php';
+        $database = new Database($dbConfig);
         $this->db = $database->getConnection();
-        $this->validator = new ValidationService();
     }
 
     public function showLogin(Request $request, Response $response): void
@@ -33,13 +31,8 @@ class AuthController extends Controller
     {
         $data = $request->getBody();
         
-        $rules = [
-            'email' => ['required', 'email'],
-            'password' => ['required', 'min:6']
-        ];
-        
-        if (!$this->validator->validate($data, $rules)) {
-            $response->json(['success' => false, 'errors' => $this->validator->getErrors()], 400);
+        if (empty($data['email']) || empty($data['password'])) {
+            $response->json(['success' => false, 'error' => 'Email et mot de passe requis'], 400);
             return;
         }
         
@@ -71,21 +64,19 @@ class AuthController extends Controller
     private function redirectToDashboard(): void
     {
         $role = SessionHelper::getUserRole();
-        $url = $this->getDashboardUrl($role);
-        $this->redirect($url);
+        $this->redirect($this->getDashboardUrl($role));
     }
 
     private function getDashboardUrl(string $role): string
     {
         $dashboards = [
-            ROLE_ETUDIANT => '/FasiChatClassroom/public/dashboard/etudiant',
-            ROLE_ENSEIGNANT => '/FasiChatClassroom/public/dashboard/enseignant',
-            ROLE_ASSISTANT => '/FasiChatClassroom/public/dashboard/assistant',
-            ROLE_APPARITAIRE => '/FasiChatClassroom/public/dashboard/apparitaire',
-            ROLE_DOYEN => '/FasiChatClassroom/public/dashboard/doyen',
-            ROLE_VICE_DOYEN => '/FasiChatClassroom/public/dashboard/vicedoyen'
+            'etudiant' => '/FasiChatClassroom/public/dashboard/etudiant',
+            'enseignant' => '/FasiChatClassroom/public/dashboard/enseignant',
+            'assistant' => '/FasiChatClassroom/public/dashboard/assistant',
+            'apparitaire' => '/FasiChatClassroom/public/dashboard/apparitaire',
+            'doyen' => '/FasiChatClassroom/public/dashboard/doyen',
+            'vice-doyen' => '/FasiChatClassroom/public/dashboard/vicedoyen'
         ];
-        
         return $dashboards[$role] ?? '/FasiChatClassroom/public/login';
     }
 }

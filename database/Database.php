@@ -1,44 +1,43 @@
 <?php
+namespace database;
 
-class Database {
-    private $host = 'localhost';
-    private $dbname = 'fasichat';
-    private $username = 'root';
-    private $password = 'Mandom+243';
+use PDO;
+use PDOException;
 
-    private ? PDO $conn = null;
+class Database
+{
+    private $connection;
+    private $config;
 
-
-    public function __construct() {
-        $this->connect();
-    }
-
-
-    private function connect(){
-        try{
-            $dsn = "mysql:host={$this->host};dbname={$this->dbname};charset=utf8mb4";
-            $this->conn = new PDO($dsn, $this->username, $this->password);
-
-            $this->conn->setAttribute(
-                PDO::ATTR_ERRMODE, 
-                PDO::ERRMODE_EXCEPTION
-            );
-
-            $this->conn->setAttribute(
-                PDO::ATTR_DEFAULT_FETCH_MODE, 
-                PDO::FETCH_ASSOC
-            );
-
-            // echo "Connexion réussie à la base de données.";
-        } catch (PDOException $e) {
-            // echo "Erreur de connexion : " . $e->getMessage();
-            throw $e;
+    public function __construct($config = null)
+    {
+        if ($config === null) {
+            $this->config = [
+                'host' => 'localhost',
+                'dbname' => 'fasichat',
+                'username' => 'root',
+                'password' => '',
+                'charset' => 'utf8mb4'
+            ];
+        } else {
+            $this->config = $config;
         }
     }
 
-    public function getConnection() {
-        return $this->conn;
+    public function getConnection()
+    {
+        if ($this->connection === null) {
+            try {
+                $this->connection = new PDO(
+                    "mysql:host={$this->config['host']};dbname={$this->config['dbname']};charset={$this->config['charset']}",
+                    $this->config['username'],
+                    $this->config['password'],
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+                );
+            } catch (PDOException $e) {
+                die("Erreur connexion: " . $e->getMessage());
+            }
+        }
+        return $this->connection;
     }
-
 }
-

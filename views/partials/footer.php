@@ -1,8 +1,5 @@
-    <script src="<?= \Helpers\ViewHelper::asset('js/main.js') ?>"></script>
-    <?php if (isset($extraJs)): ?>
-        <?php foreach ($extraJs as $js): ?>
-            <script src="<?= \Helpers\ViewHelper::asset('js/' . $js) ?>"></script>
-        <?php endforeach; ?>
-    <?php endif; ?>
+    <script src="/FasiChatClassroom/public/assets/js/main.js"></script>
+    <script src="/FasiChatClassroom/public/assets/js/chat.js"></script>
+    <script src="/FasiChatClassroom/public/assets/js/audio-recorder.js"></script>
 </body>
 </html>

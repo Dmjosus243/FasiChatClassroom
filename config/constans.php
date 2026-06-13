@@ -11,6 +11,8 @@ define('ROLE_VICE_DOYEN', 'vice-doyen');
 define('MESSAGE_PRIVE', 'prive');
 define('MESSAGE_PUBLIC', 'public');
 define('MESSAGE_MUR', 'mur');
+define('MESSAGE_AUDIO', 'audio');
+define('MESSAGE_FILE', 'file');
 
 // Types de fichiers
 define('FILE_TYPE_IMAGE', 'image');

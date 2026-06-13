@@ -1,7 +1,6 @@
 <?php
 namespace Services;
 
-use Models\Convocation;
 use Models\Doyen;
 use Models\Vicedoyen;
 use Helpers\SessionHelper;
@@ -20,9 +19,7 @@ class ConvocationService
         $user = SessionHelper::getUser();
         $role = $user['role'];
         
-        if (!in_array($role, ['doyen', 'vice-doyen'])) {
-            return false;
-        }
+        if (!in_array($role, ['doyen', 'vice-doyen'])) return false;
         
         $admin = ($role === 'doyen') 
             ? new Doyen($this->db, $user) 

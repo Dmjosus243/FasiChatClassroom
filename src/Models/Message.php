@@ -1,105 +1,83 @@
 <?php
+namespace Models;
 
-class Message {
+class Message
+{
     private $db;
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->db = $db;
     }
 
-    // Envoyer un message (privé, public ou mur)
-    public function envoyer($expediteurId, $contenu, $type, $destinataireId = null, $coursId = null, $promotionId = null, $fichierId = null) {
-        try {
-            $this->db->beginTransaction();
-
-            // On s'assure que le contenu n'est pas vide
-            if (empty(trim($contenu))) {
-                throw new Exception("Le contenu du message ne peut pas être vide.");
-            }
-
-            // 1. Insertion du message principal
-            // On utilise des valeurs par défaut pour éviter les erreurs de paramètres manquants
-            $query = "INSERT INTO messages (expediteur_id, contenu, type, cours_id, promotion_id, fichier_id) 
-                      VALUES (:expediteur_id, :contenu, :type, :cours_id, :promotion_id, :fichier_id)";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([
-                'expediteur_id' => $expediteurId,
-                'contenu' => $contenu,
-                'type' => $type,
-                'cours_id' => $coursId,
-                'promotion_id' => $promotionId,
-                'fichier_id' => $fichierId
-            ]);
-
-            $messageId = $this->db->lastInsertId();
-
-            // 2. Si c'est un message privé, on lie le destinataire
-            if ($type === 'prive') {
-                if ($destinataireId === null) {
-                    throw new Exception("Un destinataire est requis pour un message privé.");
-                }
-                $queryDest = "INSERT INTO messages_destinataires (message_id, destinataire_id) 
-                              VALUES (:message_id, :destinataire_id)";
-                $stmtDest = $this->db->prepare($queryDest);
-                $stmtDest->execute([
-                    'message_id' => $messageId,
-                    'destinataire_id' => $destinataireId
-                ]);
-            }
-
-            $this->db->commit();
-            return true;
-        } catch (Exception $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            // On relance l'exception pour que le contrôleur puisse la capturer
-            throw $e;
-        }
+    public function envoyer($expediteurId, $contenu, $type = 'prive', $destinataireId = null, $coursId = null, $promotionId = null, $fichierId = null)
+    {
+        $sql = "INSERT INTO messages (expediteur_id, destinataire_id, contenu, type, cours_id, promotion_id, fichier_id, type_media, created_at) 
+                VALUES (:exp, :dest, :contenu, :type, :cours, :promo, :fichier, :media, NOW())";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'exp' => $expediteurId,
+            'dest' => $destinataireId,
+            'contenu' => $contenu,
+            'type' => $type,
+            'cours' => $coursId,
+            'promo' => $promotionId,
+            'fichier' => $fichierId,
+            'media' => $fichierId ? 'file' : 'text'
+        ]);
     }
 
-    // Récupérer la conversation privée entre deux utilisateurs
-    public function recupererPrives($user1Id, $user2Id) {
-        $query = "SELECT m.*, u.nom, u.prenom, f.nom_stockage 
-                  FROM messages m
-                  JOIN utilisateurs u ON m.expediteur_id = u.id
-                  LEFT JOIN messages_destinataires md ON m.id = md.message_id
-                  LEFT JOIN fichiers f ON m.fichier_id = f.id
-                  WHERE m.type = 'prive' 
-                      AND (
-                          (m.expediteur_id = :u1 AND md.destinataire_id = :u2)
-                          OR 
-                          (m.expediteur_id = :u2 AND md.destinataire_id = :u1)
-                      )
-                  ORDER BY m.date_envoi ASC";
-        $stmt = $this->db->prepare($query);
-        $stmt->execute(['u1' => $user1Id, 'u2' => $user2Id]);
+    public function envoyerAvecAudio($expediteurId, $contenu, $destinataireId, $fichierId, $duree = null)
+    {
+        $sql = "INSERT INTO messages (expediteur_id, destinataire_id, contenu, type, type_media, fichier_id, duree_audio, created_at) 
+                VALUES (:exp, :dest, :contenu, 'prive', 'audio', :fichier_id, :duree, NOW())";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'exp' => $expediteurId,
+            'dest' => $destinataireId,
+            'contenu' => $contenu,
+            'fichier_id' => $fichierId,
+            'duree' => $duree
+        ]);
+    }
+
+    public function recupererPrives($userId, $otherUserId)
+    {
+        $sql = "SELECT m.*, u1.nom as expediteur_nom, u1.prenom as expediteur_prenom,
+                       u2.nom as destinataire_nom, u2.prenom as destinataire_prenom,
+                       f.id as fichier_id, f.nom_original as fichier_nom, f.chemin as fichier_chemin, f.type as fichier_type
+                FROM messages m
+                JOIN utilisateurs u1 ON m.expediteur_id = u1.id
+                JOIN utilisateurs u2 ON m.destinataire_id = u2.id
+                LEFT JOIN fichiers f ON m.fichier_id = f.id
+                WHERE (m.expediteur_id = :user1 AND m.destinataire_id = :user2)
+                   OR (m.expediteur_id = :user2 AND m.destinataire_id = :user1)
+                ORDER BY m.created_at ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['user1' => $userId, 'user2' => $otherUserId]);
         return $stmt->fetchAll();
     }
 
-    public function recupererPublics($promotionId) {
-        $query = "SELECT m.*, u.nom, u.prenom, u.role, f.nom_stockage 
-                  FROM messages m
-                  JOIN utilisateurs u ON m.expediteur_id = u.id
-                  LEFT JOIN fichiers f ON m.fichier_id = f.id
-                  WHERE m.type = 'public' AND m.promotion_id = :promotion_id
-                  ORDER BY m.date_envoi ASC";
-        $stmt = $this->db->prepare($query);
-        $stmt->execute(['promotion_id' => $promotionId]);
-        return $stmt->fetchAll();
-    }
-
-    public function recupererMur($coursId) {
-        $query = "SELECT m.*, u.nom, u.prenom, u.role, f.nom_stockage 
-                  FROM messages m
-                  JOIN utilisateurs u ON m.expediteur_id = u.id
-                  LEFT JOIN fichiers f ON m.fichier_id = f.id
-                  WHERE m.type = 'mur' AND m.cours_id = :cours_id
-                  ORDER BY m.date_envoi ASC";
-        $stmt = $this->db->prepare($query);
+    public function recupererPublics($coursId)
+    {
+        $sql = "SELECT m.*, u.nom, u.prenom, f.id as fichier_id, f.nom_original as fichier_nom, f.chemin as fichier_chemin
+                FROM messages m JOIN utilisateurs u ON m.expediteur_id = u.id
+                LEFT JOIN fichiers f ON m.fichier_id = f.id
+                WHERE m.cours_id = :cours_id AND m.type = 'public'
+                ORDER BY m.created_at ASC";
+        $stmt = $this->db->prepare($sql);
         $stmt->execute(['cours_id' => $coursId]);
         return $stmt->fetchAll();
     }
 
+    public function recupererMur($coursId)
+    {
+        $sql = "SELECT m.*, u.nom, u.prenom, u.role, f.id as fichier_id, f.nom_original as fichier_nom, f.chemin as fichier_chemin
+                FROM mur_pedagogique m JOIN utilisateurs u ON m.user_id = u.id
+                LEFT JOIN fichiers f ON m.fichier_id = f.id
+                WHERE m.cours_id = :cours_id ORDER BY m.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['cours_id' => $coursId]);
+        return $stmt->fetchAll();
+    }
 }
