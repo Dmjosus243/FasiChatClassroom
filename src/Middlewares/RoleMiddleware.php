@@ -20,6 +20,7 @@ class RoleMiddleware extends Middleware
         $userRole = SessionHelper::getUserRole();
         if (!in_array($userRole, $this->allowedRoles)) {
             $response->json(['error' => 'Accès non autorisé'], 403);
+            exit();
         }
     }
 }

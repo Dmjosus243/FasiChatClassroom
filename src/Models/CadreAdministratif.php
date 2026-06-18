@@ -9,7 +9,7 @@ abstract class CadreAdministratif extends Utilisateur {
             $texteMessage .= " | Notes : " . $message;
         }
 
-        $queryMsg = "INSERT INTO messages (expediteur_id, contenu, type) VALUES (:expediteur_id, :contenu, 'convocation')";
+        $queryMsg = "INSERT INTO messages (expediteur_id, contenu, type) VALUES (:expediteur_id, :contenu, 'prive')";
         $stmtMsg = $db->prepare($queryMsg);
         $stmtMsg->execute([
             'expediteur_id' => $this->id,

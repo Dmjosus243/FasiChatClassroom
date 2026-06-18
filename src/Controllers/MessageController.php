@@ -84,7 +84,7 @@ class MessageController extends Controller
         
         foreach ($messages as &$message) {
             if (!empty($message['fichier_chemin'])) {
-                $message['fichier_url'] = '/FasiChatClassroom/public/assets/uploads/' . $message['fichier_chemin'];
+                $message['fichier_url'] = '/FasiChatClassroom/public/assets/uploads/' . htmlspecialchars($message['fichier_chemin'], ENT_QUOTES, 'UTF-8');
             }
             if (!empty($message['duree_audio'])) {
                 $message['duree_formatee'] = gmdate("i:s", $message['duree_audio']);

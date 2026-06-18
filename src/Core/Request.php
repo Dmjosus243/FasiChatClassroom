@@ -13,8 +13,20 @@ class Request
     public function getUri(): string
     {
         $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $basePath = '/FasiChatClassroom/public';
-        return str_replace($basePath, '', $uri);
+        
+        // Utiliser le nom EXACT de ton dossier (avec espace et majuscules)
+        $basePath = '/FASICHATCLASSROOM%20BETA/public';
+        
+        // Remplacer le basePath
+        $uri = str_replace($basePath, '', $uri);
+        
+        // Si l'URI est vide ou '/', retourner '/'
+        if (empty($uri) || $uri === '/') {
+            return '/';
+        }
+        
+        // S'assurer que l'URI commence par /
+        return '/' . ltrim($uri, '/');
     }
 
     public function getBody(): array

@@ -11,7 +11,7 @@ class Apparitaire extends Utilisateur {
 
     // Publier une nouvelle annonce
     public function publierAnnonce($titre, $contenu) {
-        $query = "INSERT INTO annonces (titre, contenu, auteur_id) VALUES (:titre, :contenu, :auteur_id)";
+        $query = "INSERT INTO annonces_valve (titre, contenu, user_id) VALUES (:titre, :contenu, :auteur_id)";
         $stmt = $this->db->prepare($query);
         return $stmt->execute([
             'titre' => $titre,
@@ -22,14 +22,14 @@ class Apparitaire extends Utilisateur {
 
     // Supprimer une annonce
     public function supprimerAnnonce($idAnnonce) {
-        $query = "DELETE FROM annonces WHERE id = :id";
+        $query = "DELETE FROM annonces_valve WHERE id = :id";
         $stmt = $this->db->prepare($query);
         return $stmt->execute(['id' => $idAnnonce]);
     }
 
     // Modifier une annonce
     public function modifierAnnonce($idAnnonce, $titre, $contenu) {
-        $query = "UPDATE annonces SET titre = :titre, contenu = :contenu WHERE id = :id";
+        $query = "UPDATE annonces_valve SET titre = :titre, contenu = :contenu WHERE id = :id";
         $stmt = $this->db->prepare($query);
         return $stmt->execute([
             'titre' => $titre,

@@ -69,6 +69,9 @@ ALTER TABLE convocations ADD INDEX idx_created_by (created_by);
 
 ALTER TABLE annonces_valve ADD INDEX idx_created (created_at);
 
+-- 9. Ajouter 'mur' et 'convocation' dans l'ENUM type de messages
+ALTER TABLE messages MODIFY COLUMN type ENUM('prive', 'public', 'groupe', 'mur', 'convocation') DEFAULT 'prive';
+
 -- ============================================
 -- FIN DE LA MISE À JOUR
 -- ============================================

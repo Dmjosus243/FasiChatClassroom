@@ -1,7 +1,10 @@
 <?php
 
 require_once __DIR__ . '/../Autoloader.php';
+Autoloader::register();
 require_once __DIR__ . '/../../database/Database.php';
+
+session_start();
 
 $dbInstance = new Database();
 $db = $dbInstance->getConnection();
@@ -10,35 +13,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_P
     $email = $_POST['email'];
     $password = $_POST['password'];
 
-    // On utilise la méthode statique de Utilisateur pour vérifier n'importe quel rôle
-    $user = Utilisateur::authentifier($db, $email, $password);
+    $stmt = $db->prepare("SELECT * FROM utilisateurs WHERE email = :email");
+    $stmt->execute(['email' => $email]);
+    $user = $stmt->fetch();
 
-    if ($user) {
-        session_start();
+    if ($user && password_verify($password, $user['mot_de_passe'])) {
+        unset($user['mot_de_passe']);
         $_SESSION['user'] = $user;
-        
-        // Redirection spécifique selon le rôle avec un switch
-        switch ($user['role']) {
-            case 'etudiant':
-                header('Location: /FasiChatClassroom/public/dashboard_etudiant');
-                break;
-            case 'enseignant':
-            case 'assistant':
-                header('Location: /FasiChatClassroom/public/dashboard_enseignant');
-                break;
-            case 'doyen':
-                header('Location: /FasiChatClassroom/public/dashboard_admin');
-                break;
-            case 'vice-doyen':
-                header('Location: /FasiChatClassroom/public/dashboard_vicedoyen');
-                break;
-            case 'apparitaire':
-                header('Location: /FasiChatClassroom/public/dashboard_apparitaire');
-                break;
-            default:
-                header('Location: /FasiChatClassroom/public/login');
-                break;
-        }
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_role'] = $user['role'];
+
+        $dashboards = [
+            'etudiant' => '/FasiChatClassroom/public/dashboard/etudiant',
+            'enseignant' => '/FasiChatClassroom/public/dashboard/enseignant',
+            'assistant' => '/FasiChatClassroom/public/dashboard/assistant',
+            'apparitaire' => '/FasiChatClassroom/public/dashboard/apparitaire',
+            'doyen' => '/FasiChatClassroom/public/dashboard/doyen',
+            'vice-doyen' => '/FasiChatClassroom/public/dashboard/vicedoyen'
+        ];
+
+        header('Location: ' . ($dashboards[$user['role']] ?? '/FasiChatClassroom/public/login'));
         exit();
     } else {
         header('Location: /FasiChatClassroom/public/login?error=1');

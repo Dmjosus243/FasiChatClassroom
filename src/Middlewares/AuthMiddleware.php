@@ -12,6 +12,7 @@ class AuthMiddleware extends Middleware
     {
         if (!SessionHelper::isLoggedIn()) {
             $response->json(['error' => 'Non authentifié'], 401);
+            exit();
         }
     }
 }

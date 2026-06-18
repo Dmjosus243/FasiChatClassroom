@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS messages (
     expediteur_id INT NOT NULL,
     destinataire_id INT NULL, -- NULL si c'est un message de groupe/public
     contenu TEXT NOT NULL,
-    type ENUM('prive', 'public', 'groupe') DEFAULT 'prive',
+    type ENUM('prive', 'public', 'groupe', 'mur', 'convocation') DEFAULT 'prive',
     type_media ENUM('text', 'audio', 'file') DEFAULT 'text',
     cours_id INT NULL,
     promotion_id INT NULL,

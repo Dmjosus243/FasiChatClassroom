@@ -10,7 +10,7 @@ class CsrfMiddleware extends Middleware
 {
     public function handle(Request $request, Response $response): void
     {
-        if ($request->getMethod() === 'POST') {
+        if (in_array($request->getMethod(), ['POST', 'PUT', 'DELETE'])) {
             $body = $request->getBody();
             $token = $body['csrf_token'] ?? '';
             if (!SecurityHelper::verifyCsrfToken($token)) {
